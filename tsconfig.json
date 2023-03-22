@@ -15,5 +15,10 @@
     "noImplicitReturns": true,
     "skipLibCheck": true
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "lib/command.ts",
+    "lib/elmishComponent.ts",
+    "lib/subscription.ts"
+  ]
 }
