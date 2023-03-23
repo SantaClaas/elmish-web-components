@@ -27,3 +27,14 @@ export function execute<TMessage>(
     }
   });
 }
+
+export function batch<TMessage>(
+  commands: Iterable<Command<TMessage>>
+): Command<TMessage> {
+  return Array.from(commands).flat();
+}
+
+export function ofMessage<TMessage>(message: TMessage): Command<TMessage> {
+  // A command is just an array of effects
+  return [(dispatch: Dispatch<TMessage>) => dispatch(message)];
+}
