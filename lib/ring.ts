@@ -1,63 +1,66 @@
 type Writable<TItem> = {
   type: "writable";
   // WX??? write exclusive????
-  wx: Array<TItem>;
+  items: Array<TItem>;
   // IX???
-  ix: number;
+  index: number;
 };
 
 type ReadWritable<TItem> = {
   type: "readWritable";
   // RW??? read write???
-  rw: Array<TItem>;
+  items: Array<TItem>;
   /// WIX???
-  wix: number;
+  writeIndex: number;
   /// RIX???
-  rix: number;
+  readIndex: number;
 };
 
 type RingState<TItem> = Writable<TItem> | ReadWritable<TItem>;
 
 export class RingBuffer<TItem> {
-  #state: RingState<TItem>;
+  #currentState: RingState<TItem>;
   constructor(size: number) {
     const initialState: Writable<TItem> = {
       type: "writable",
-      wx: Array(Math.max(size, 10)),
-      ix: 0,
+      items: Array(Math.max(size, 10)),
+      index: 0,
     };
 
-    this.#state = initialState;
+    this.#currentState = initialState;
   }
 
-  #doubleSize(ix: number, items: Array<TItem>): Array<TItem> {
+  #doubleSize(index: number, items: Array<TItem>): Array<TItem> {
     // I don't understand the source code. Like I know what it does but not why
     return [
-      ...items.slice(0, ix),
-      ...items.slice(ix),
+      ...items,
       // Normally default value of TItem but
       ...items.map((_) => null as TItem),
     ];
   }
 
   pop(): TItem | undefined {
-    switch (this.#state.type) {
+    switch (this.#currentState.type) {
       case "readWritable":
-        const { rw: items, rix: oldRix, wix } = this.#state;
+        const {
+          items: items,
+          readIndex: oldRix,
+          writeIndex: wix,
+        } = this.#currentState;
         const newRix = (oldRix + 1) % items.length;
-        if (newRix === this.#state.wix) {
+        if (newRix === this.#currentState.writeIndex) {
           const newState: Writable<TItem> = {
             type: "writable",
-            wx: items,
-            ix: wix,
+            items: items,
+            index: wix,
           };
-          this.#state = newState;
+          this.#currentState = newState;
         } else {
           const newState: ReadWritable<TItem> = {
-            ...this.#state,
-            rix: newRix,
+            ...this.#currentState,
+            readIndex: newRix,
           };
-          this.#state = newState;
+          this.#currentState = newState;
         }
 
         return items[oldRix];
@@ -67,47 +70,74 @@ export class RingBuffer<TItem> {
   }
 
   push(item: TItem) {
-    switch (this.#state.type) {
+    switch (this.#currentState.type) {
+      // If state is writable we write the item to the current write index
       case "writable": {
-        const { wx: items, ix } = this.#state;
-        items[ix] = item;
-        const wix = (ix + 1) % items.length;
+        const { items, index } = this.#currentState;
+        items[index] = item;
+        const writeIndex = (index + 1) % items.length;
         const newState: ReadWritable<TItem> = {
           type: "readWritable",
-          rw: items,
-          wix,
-          rix: ix,
+          items,
+          writeIndex,
+          readIndex: index,
         };
 
-        this.#state = newState;
+        this.#currentState = newState;
         return;
       }
       case "readWritable": {
-        const { rw: items, wix, rix } = this.#state;
-        items[wix] = item;
-        const newWix = (wix + 1) % items.length;
-        if (newWix === rix) {
+        const {
+          items,
+          writeIndex: writeIndex,
+          readIndex: readIndex,
+        } = this.#currentState;
+        items[writeIndex] = item;
+        const newWix = (writeIndex + 1) % items.length;
+        if (newWix === readIndex) {
+          const doubledItems = this.#doubleSize(readIndex, items);
           const newState: ReadWritable<TItem> = {
             type: "readWritable",
-            rw: this.#doubleSize(rix, items),
-            wix: items.length,
-            rix: 0,
+            items: doubledItems,
+            writeIndex: items.length,
+            readIndex: 0,
           };
 
-          this.#state = newState;
+          this.#currentState = newState;
           return;
         }
         // Else
         const newState: ReadWritable<TItem> = {
           type: "readWritable",
-          rw: items,
-          wix: newWix,
-          rix,
+          items: items,
+          writeIndex: newWix,
+          readIndex: readIndex,
         };
 
-        this.#state = newState;
+        this.#currentState = newState;
         return;
       }
     }
+  }
+}
+
+// There is a bug in the ring buffer
+export class Queue<T> {
+  #values: Array<T> = [];
+
+  dequeue() {
+    if (this.#values.length === 0) return undefined;
+
+    // First index is first element. Last index is last element.
+    const value = this.#values[0];
+
+    // Remove and reduce size
+    this.#values = this.#values.length === 1 ? [] : this.#values.slice(1);
+
+    return value;
+  }
+
+  enqueue(value: T) {
+    this.#values.push(value);
   }
 }

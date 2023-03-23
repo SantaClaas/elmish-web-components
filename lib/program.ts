@@ -1,7 +1,7 @@
 // Can't I import the types and consts separately with namespace and without? 🤔
 import { Command, execute, type Dispatch } from "./command";
 import { HandleErrorFunction } from "./error";
-import { RingBuffer } from "./ring";
+import { Queue, RingBuffer } from "./ring";
 import {
   type Subscriptions,
   type None,
@@ -20,7 +20,7 @@ import {
  * (I prefer no abbreviations though...)
  */
 
-type InitializeFunction<TArgument, TModel, TMessage> = (
+export type InitializeFunction<TArgument, TModel, TMessage> = (
   argument: TArgument
 ) => [TModel, Command<TMessage>];
 
@@ -72,7 +72,7 @@ type Program<TArgument, TModel, TMessage, TView> = {
   readonly termination: Termination<TMessage, TModel>;
 };
 
-function makeProgram<TArgument, TModel, TMessage, TView>(
+export function makeProgram<TArgument, TModel, TMessage, TView>(
   initialize: InitializeFunction<TArgument, TModel, TMessage>,
   update: UpdateFunction<TModel, TMessage>,
   view: ViewFunction<TModel, TMessage, TView>
@@ -267,7 +267,11 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
   const [model, command] = program.initialize(argument);
   const subscription = program.subscribe(model);
   const [toTerminate, terminate] = program.termination;
-  const ringBuffer = new RingBuffer<TMessage>(10);
+  // const ringBuffer = new RingBuffer<TMessage>(10);
+  // Ring/Circular buffer seems to be an optimization and it should behave like a queue
+  // So unitl I have fixed the bug in my implementation of it, I'll use a queue which is easier to understand 😅
+  // On the other hand I could just put more research in it to understand the ring buffer. Will do when out of Proof of Concept phase.
+  const messageQueue = new Queue<TMessage>();
   let isReentered = false;
   let state = model;
   let activeSubscriptions: Array<[SubscriptionId, StopFunction]> = [];
@@ -277,7 +281,8 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
   function dispatch(message: TMessage) {
     if (isTerminated) return;
 
-    ringBuffer.push(message);
+    // ringBuffer.push(message);
+    messageQueue.enqueue(message);
     if (isReentered) return;
 
     isReentered = true;
@@ -290,7 +295,8 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
     return syncDispatch(dispatch)(message);
   }
   function processMessages() {
-    let nextMessage = ringBuffer.pop();
+    // let nextMessage = ringBuffer.pop();
+    let nextMessage = messageQueue.dequeue();
     while (!isTerminated && nextMessage) {
       // Is there a possibility to terminate multiple times?
       if (toTerminate(nextMessage)) {
@@ -324,7 +330,8 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
           differentiationState
         );
 
-        nextMessage = ringBuffer.pop();
+        // nextMessage = ringBuffer.pop();
+        nextMessage = messageQueue.dequeue();
       }
     }
   }
@@ -346,7 +353,7 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
   isReentered = false;
 }
 
-function runWith<TArgument, TModel, TMessage, TView>(
+export function runWith<TArgument, TModel, TMessage, TView>(
   argument: TArgument,
   program: Program<TArgument, TModel, TMessage, TView>
 ) {
