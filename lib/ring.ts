@@ -40,7 +40,7 @@ export class RingBuffer<TItem> {
     ];
   }
 
-  pop() {
+  pop(): TItem | undefined {
     switch (this.#state.type) {
       case "readWritable":
         const { rw: items, rix: oldRix, wix } = this.#state;
@@ -62,7 +62,7 @@ export class RingBuffer<TItem> {
 
         return items[oldRix];
       default:
-        return null;
+        return undefined;
     }
   }
 
