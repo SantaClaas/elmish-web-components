@@ -1,12 +1,17 @@
 // Can't I import the types and consts separately with namespace and without? 🤔
-import * as command from "./command";
-import { type Dispatch } from "./dispatch";
+import { Command, execute, type Dispatch } from "./command";
+import { HandleErrorFunction } from "./error";
+import { RingBuffer } from "./ring";
 import {
-  type Subscription,
+  type Subscriptions,
   type None,
   none,
   SubscriptionId,
   Subscribe,
+  StopFunction,
+  differentiate,
+  change,
+  stopSubscriptions,
 } from "./subscription";
 
 // Me trying to copy https://github.com/elmish/elmish to TypeScript:
@@ -17,12 +22,12 @@ import {
 
 type InitializeFunction<TArgument, TModel, TMessage> = (
   argument: TArgument
-) => [TModel, command.Command<TMessage>];
+) => [TModel, Command<TMessage>];
 
 type UpdateFunction<TModel, TMessage> = (
   message: TMessage,
   model: TModel
-) => [TModel, command.Command<TMessage>];
+) => [TModel, Command<TMessage>];
 
 type ViewFunction<TModel, TMessage, TView> = (
   model: TModel,
@@ -31,25 +36,40 @@ type ViewFunction<TModel, TMessage, TView> = (
 
 type SubscribeFunction<TModel, TMessage> = (
   model: TModel
-) => Subscription<TMessage>;
+) => Subscriptions<TMessage>;
+
+type Predicate<TMessage> = (message: TMessage) => boolean;
+type HandleTerminateFunction<TModel> = (model: TModel) => void;
+
+type Termination<TMessage, TModel> = [
+  Predicate<TMessage>,
+  HandleTerminateFunction<TModel>
+];
+
+type MapFunction<TValue> = (value: TValue) => TValue;
+
+type SetStateFunction<TModel, TMessage> = (
+  model: TModel,
+  dispatch: Dispatch<TMessage>
+) => void;
 
 type Program<TArgument, TModel, TMessage, TView> = {
   // Initializes the initial state of the application and starts side effects
-  initialize: InitializeFunction<TArgument, TModel, TMessage>;
+  readonly initialize: InitializeFunction<TArgument, TModel, TMessage>;
   // Is called when a message is dispatched
-  update: UpdateFunction<TModel, TMessage>;
-  view: ViewFunction<TModel, TMessage, TView>;
+  readonly update: UpdateFunction<TModel, TMessage>;
+  readonly view: ViewFunction<TModel, TMessage, TView>;
   // Subscribe to changes to the applications state from outside of the application.
   // The difference to dispatch is that these changes are not triggered by the application
-  subscribe: SubscribeFunction<TModel, TMessage>;
+  readonly subscribe: SubscribeFunction<TModel, TMessage>;
   // Need to research what these are again 😬
-  setState: (model: TModel, dispatch: Dispatch<TMessage>) => void;
+  readonly setState: SetStateFunction<TModel, TMessage>;
   // This was for error logging or something 🤔
   // The argument type is string*exception. Not sure what the string was. I assume a message?
-  onError: (message: string, error: Error) => void;
+  readonly onError: HandleErrorFunction;
   // Not sure here either 😬
   // Probably something related to the shutdown (https://elmish.github.io/elmish/#controlling-termination 👀❓)
-  termination: [(message: TMessage) => boolean, (model: TModel) => void];
+  readonly termination: Termination<TMessage, TModel>;
 };
 
 function makeProgram<TArgument, TModel, TMessage, TView>(
@@ -75,13 +95,10 @@ function makeSimple<TArgument, TModel, TMessage, TView>(
   view: ViewFunction<TModel, TMessage, TView>
 ): Program<TArgument, TModel, TMessage, TView> {
   return {
-    initialize: (argument: TArgument) => [initalize(argument), command.none],
-    update: (
-      message: TMessage,
-      model: TModel
-    ): [TModel, command.Command<TMessage>] => [
+    initialize: (argument: TArgument) => [initalize(argument), [] as None],
+    update: (message: TMessage, model: TModel): [TModel, Command<TMessage>] => [
       update(message, model),
-      command.none,
+      [] as None,
     ],
     view,
     setState: (model, dispatch) => view(model, dispatch),
@@ -138,5 +155,206 @@ function withConsoleTrace<TArgument, TModel, TMessage, TView>(
       "Updated subscriptions: ",
       subscriptions.map(([id]: [SubscriptionId, Subscribe<TMessage>]) => id)
     );
+
+    return subscriptions;
   }
+
+  return {
+    ...program,
+    initialize: traceInitialization,
+    update: traceUpdate,
+    subscribe: traceSubscribe,
+  };
+}
+
+function withErrorHandler<TArgument, TModel, TMessage, TView>(
+  onError: HandleErrorFunction,
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  return {
+    ...program,
+    onError,
+  };
+}
+
+function withTermination<TArgument, TModel, TMessage, TView>(
+  predicate: Predicate<TMessage>,
+  terminate: HandleTerminateFunction<TModel>,
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  return {
+    ...program,
+    termination: [predicate, terminate],
+  };
+}
+
+function mapTermination<TArgument, TModel, TMessage, TView>(
+  map: MapFunction<Termination<TMessage, TModel>>,
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  return {
+    ...program,
+    termination: map(program.termination),
+  };
+}
+
+function mapErrorHandler<TArgument, TModel, TMessage, TView>(
+  map: MapFunction<HandleErrorFunction>,
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  return {
+    ...program,
+    onError: map(program.onError),
+  };
+}
+
+function onError<TArgument, TModel, TMessage, TView>(
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  return program.onError;
+}
+
+function withSetState<TArgument, TModel, TMessage, TView>(
+  setState: SetStateFunction<TModel, TMessage>,
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  return {
+    ...program,
+    setState,
+  };
+}
+
+function setState<TArgument, TModel, TMessage, TView>(
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  return program.setState;
+}
+
+function view<TArgument, TModel, TMessage, TView>(
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  return program.view;
+}
+
+function initialize<TArgument, TModel, TMessage, TView>(
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  return program.initialize;
+}
+
+function update<TArgument, TModel, TMessage, TView>(
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  return program.update;
+}
+function map<TArgument, TModel, TMessage, TView>(
+  map: MapFunction<Program<TArgument, TModel, TMessage, TView>>,
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  return map(program);
+}
+
+// The id / identity function. Returns what is given, no joke, pretty useful
+function identity<TValue>(value: TValue) {
+  return value;
+}
+
+function runWithDispatch<TArgument, TModel, TMessage, TView>(
+  syncDispatch: (dispatch: Dispatch<TMessage>) => Dispatch<TMessage>,
+  argument: TArgument,
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  const [model, command] = program.initialize(argument);
+  const subscription = program.subscribe(model);
+  const [toTerminate, terminate] = program.termination;
+  const ringBuffer = new RingBuffer<TMessage>(10);
+  let isReentered = false;
+  let state = model;
+  let activeSubscriptions: Array<[SubscriptionId, StopFunction]> = [];
+  let isTerminated = false;
+
+  // How good is JS with recursion? Or should I make this into a loop?
+  function dispatch(message: TMessage) {
+    if (isTerminated) return;
+
+    ringBuffer.push(message);
+    if (isReentered) return;
+
+    isReentered = true;
+    processMessages();
+    isReentered = false;
+  }
+
+  // Idk why it is serialized
+  function serializedDispatch(message: TMessage) {
+    return syncDispatch(dispatch)(message);
+  }
+  function processMessages() {
+    let nextMessage = ringBuffer.pop();
+    while (!isTerminated && nextMessage) {
+      // Is there a possibility to terminate multiple times?
+      if (toTerminate(nextMessage)) {
+        stopSubscriptions(program.onError, activeSubscriptions);
+        terminate(state);
+        isTerminated = true;
+      } else {
+        const [newState, command] = program.update(nextMessage, state);
+        const subscriptions = program.subscribe(newState);
+        program.setState(newState, serializedDispatch);
+        execute(
+          (error) =>
+            program.onError(
+              `Error handling the message: ${nextMessage}`,
+              error
+            ),
+          dispatch,
+          command
+        );
+
+        state = newState;
+        // Doing a step in between compared to original because we don't have the pipe operator
+        const differentiationState = differentiate(
+          activeSubscriptions,
+          subscriptions
+        );
+
+        activeSubscriptions = change(
+          program.onError,
+          dispatch,
+          differentiationState
+        );
+
+        nextMessage = ringBuffer.pop();
+      }
+    }
+  }
+
+  isReentered = true;
+  program.setState(model, serializedDispatch);
+  execute(
+    (error) => program.onError(`Error initializing command: ${command}`, error),
+    serializedDispatch,
+    command
+  );
+  // Step inbetween becasue no pipe operator
+  const differentiationResult = differentiate(
+    activeSubscriptions,
+    subscription
+  );
+  change(program.onError, serializedDispatch, differentiationResult);
+  processMessages();
+  isReentered = false;
+}
+
+function runWith<TArgument, TModel, TMessage, TView>(
+  argument: TArgument,
+  program: Program<TArgument, TModel, TMessage, TView>
+) {
+  runWithDispatch(identity, argument, program);
+}
+
+function run<TModel, TMessage, TView>(
+  program: Program<null, TModel, TMessage, TView>
+) {
+  runWith(null, program);
 }

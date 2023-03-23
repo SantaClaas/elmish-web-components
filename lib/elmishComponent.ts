@@ -1,7 +1,6 @@
-import { type Command } from "./command";
-import { type Dispatch } from "./dispatch";
+import { Dispatch, type Command } from "./command";
 
-abstract class ElmishComponent<TModel, TMessage> extends HTMLElement {
+export abstract class ElmishComponent<TModel, TMessage> extends HTMLElement {
   /**
    * The update function get's the current state encapsulated in the model and a message disptached from the view to update the model based on the message
    * Or start commands for side effects
