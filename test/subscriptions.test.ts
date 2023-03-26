@@ -1,4 +1,5 @@
 import { test, describe, expect } from "vitest";
+import { batch } from "../lib/command";
 import {
   ActiveSubscription,
   differentiate,
@@ -148,9 +149,42 @@ describe("Differentiation behavior", () => {
     // Assert
     equals(expected, actual);
   });
-  test.todo(
-    "subs are started and stopped when subs has new ids and omits old ids"
-  );
-  test.todo("dupe subs are detected even when there are no changes");
+  test("subs are started and stopped when subs has new ids and omits old ids", () => {
+    // Arrange
+    const activeSubscriptions = generateActive(0, 6, stop);
+    const temporary = generateNew(0, 9, subscription.subscription);
+    const subscriptions = temporary.slice(3, 10);
+    const expected: DifferentiationResult<void> = {
+      duplicates: [],
+      toStop: activeSubscriptions.slice(0, 3),
+      toKeep: activeSubscriptions.slice(3, 7),
+      toStart: temporary.slice(7, 10),
+    };
+
+    // Act
+    const actual = differentiate(activeSubscriptions, subscriptions);
+
+    // Assert
+    equals(expected, actual);
+  });
+  test("dupe subs are detected even when there are no changes", () => {
+    // Arrange
+    const activeSubscriptions = generateActive(0, 6, stop);
+
+    const temporary = generateNew(0, 9, subscription.subscription);
+    const subscriptions = temporary.slice(3, 10);
+    const expected: DifferentiationResult<void> = {
+      duplicates: [],
+      toStop: activeSubscriptions.slice(0, 3),
+      toKeep: activeSubscriptions.slice(3, 7),
+      toStart: temporary.slice(7, 10),
+    };
+
+    // Act
+    const actual = differentiate(activeSubscriptions, subscriptions);
+
+    // Assert
+    equals(expected, actual);
+  });
   test.todo("last dupe wins when starting new subs");
 });

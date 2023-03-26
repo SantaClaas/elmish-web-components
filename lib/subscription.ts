@@ -244,3 +244,9 @@ export function stopSubscriptions(
 ) {
   subscriptions.forEach((subscription) => tryStop(onError, subscription));
 }
+
+export function batch<TMessage>(
+  commands: Iterable<NewSubscription<TMessage>>
+): NewSubscription<TMessage>[] {
+  return Array.from(commands).flat();
+}
