@@ -70,7 +70,7 @@ export type Subscribe<TMessage> = (
 ) => StopFunction;
 
 export type NewSubscription<TMessage> = Subscription & {
-  subscribe: Subscribe<TMessage>;
+  start: Subscribe<TMessage>;
 };
 
 export const none: None = [];
@@ -218,7 +218,7 @@ function tryStart<TMessage>(
   dispatch: Dispatch<TMessage>,
   subscription: NewSubscription<TMessage>
 ): ActiveSubscription | false {
-  const { id, subscribe: start } = subscription;
+  const { id, start } = subscription;
   try {
     return { id, stop: start(dispatch) };
   } catch (error) {
@@ -246,7 +246,7 @@ export function stopSubscriptions(
 }
 
 export function batch<TMessage>(
-  commands: Iterable<NewSubscription<TMessage>>
+  subscriptions: NewSubscription<TMessage>[][]
 ): NewSubscription<TMessage>[] {
-  return Array.from(commands).flat();
+  return subscriptions.flat();
 }

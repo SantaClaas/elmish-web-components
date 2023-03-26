@@ -1,5 +1,4 @@
 import { test, describe, expect } from "vitest";
-import { batch } from "../lib/command";
 import {
   ActiveSubscription,
   differentiate,
@@ -13,13 +12,13 @@ import {
 
 type SubscriptionContainer<TMessage> = {
   subscription: Subscribe<TMessage>;
-  dupe: Subscribe<TMessage>;
+  duplicate: Subscribe<TMessage>;
 };
 
 const stop: StopFunction = () => {};
 const subscription: SubscriptionContainer<void> = {
   subscription: () => stop,
-  dupe: (_) => stop,
+  duplicate: (_) => stop,
 };
 
 function createNewId(index: number) {
@@ -49,7 +48,7 @@ function generateNew(
   return [...Array(count)].map(
     (_, index): NewSubscription<void> => ({
       id: createNewId(idRangeStart + index),
-      subscribe: whichSub,
+      start: whichSub,
     })
   );
 }
@@ -98,7 +97,7 @@ function equals(expected, actual) {
 
 describe("Differentiation behavior", () => {
   // Port these tests from elmish
-  test("no changes when subs and active subs are the same", () => {
+  test("No changes when subscriptions and active subscriptions are the same", () => {
     // Arrange
     const activeSubscriptions = generateActive(0, 6, stop);
     const subscriptions = generateNew(0, 6, subscription.subscription);
@@ -115,7 +114,7 @@ describe("Differentiation behavior", () => {
     // Assert
     equals(expected, actual);
   });
-  test("active subs are stopped when not found in subs", () => {
+  test("Active subscriptions are stopped when not found in subscriptions", () => {
     // Arrange
     const activeSubscriptions = generateActive(0, 6, stop);
     const subscriptions = generateNew(3, 6, subscription.subscription);
@@ -132,7 +131,7 @@ describe("Differentiation behavior", () => {
     // Assert
     equals(expected, actual);
   });
-  test("subs are started when not found in active subs", () => {
+  test("Subscriptions are started when not found in active subscriptions", () => {
     // Arrange
     const activeSubscriptions = generateActive(0, 2, stop);
     const subscriptions = generateNew(0, 6, subscription.subscription);
@@ -149,7 +148,7 @@ describe("Differentiation behavior", () => {
     // Assert
     equals(expected, actual);
   });
-  test("subs are started and stopped when subs has new ids and omits old ids", () => {
+  test("Subscriptions are started and stopped when subscriptions has new ids and omits old ids", () => {
     // Arrange
     const activeSubscriptions = generateActive(0, 6, stop);
     const temporary = generateNew(0, 9, subscription.subscription);
@@ -167,17 +166,19 @@ describe("Differentiation behavior", () => {
     // Assert
     equals(expected, actual);
   });
-  test("dupe subs are detected even when there are no changes", () => {
+  test("Duplicate subscriptions are detected even when there is no changes", () => {
     // Arrange
     const activeSubscriptions = generateActive(0, 6, stop);
-
-    const temporary = generateNew(0, 9, subscription.subscription);
-    const subscriptions = temporary.slice(3, 10);
-    const expected: DifferentiationResult<void> = {
-      duplicates: [],
-      toStop: activeSubscriptions.slice(0, 3),
-      toKeep: activeSubscriptions.slice(3, 7),
-      toStart: temporary.slice(7, 10),
+    const subscriptions = [
+      generateNew(2, 2, subscription.duplicate),
+      generateNew(2, 2, subscription.duplicate),
+      generateNew(0, 6, subscription.subscription),
+    ].flat();
+    const expected = {
+      duplicates: subscriptions.slice(0, 2),
+      toStop: [],
+      toKeep: activeSubscriptions,
+      toStart: [],
     };
 
     // Act
@@ -186,5 +187,45 @@ describe("Differentiation behavior", () => {
     // Assert
     equals(expected, actual);
   });
-  test.todo("last dupe wins when starting new subs");
+  test("last dupe wins when starting new subs", () => {
+    // Arrange
+    const activeSubscriptions = [];
+    const duplicateSubscriptionId = createNewId(2);
+    const subscriptions = [
+      generateNew(2, 2, subscription.duplicate),
+      generateNew(2, 2, subscription.duplicate),
+      generateNew(0, 6, subscription.subscription),
+    ].flat();
+    const expected = {
+      duplicates: subscriptions.slice(0, 2),
+      toStop: [],
+      toKeep: activeSubscriptions,
+      toStart: subscriptions.slice(2, 9),
+    };
+
+    // Act
+    const actual = differentiate(activeSubscriptions, subscriptions);
+    const { duplicates, toStart } = actual;
+    const { id: startId, start: startDuplicate } = toStart[2];
+
+    // Assert
+    expect(
+      duplicates.every(
+        (id) => duplicateSubscriptionId.join() === id.join(),
+        "Duplicates should have wrong id"
+      )
+    ).toBe(true);
+    expect(startId.join(), "Started duplicate should have wrong id").toBe(
+      duplicateSubscriptionId.join()
+    );
+    expect(startDuplicate, "Started duplicate should be the wrong one").toBe(
+      subscription.subscription
+    );
+    expect(
+      startDuplicate,
+      "Started duplicate should be the wrong one"
+    ).not.toBe(subscription.duplicate);
+
+    equals(expected, actual);
+  });
 });
