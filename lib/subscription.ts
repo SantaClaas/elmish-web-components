@@ -39,6 +39,10 @@ class ExtendedSet<TKey, TValue> {
     this.#internalSet.add(key);
     return this;
   }
+
+  get size(): number {
+    return this.#internalSet.size;
+  }
 }
 
 function idToKey(value: SubscriptionId) {
@@ -147,7 +151,7 @@ export function differentiate<TMessage>(
   const { duplicates, newKeys, newSubscriptions } =
     findDuplicates(subscriptions);
   // If keys "set" and new keys set are equal
-  if (keys.every((key) => newKeys.has(key))) {
+  if (keys.length === newKeys.size && keys.every((key) => newKeys.has(key))) {
     return {
       duplicates,
       toStop: [],

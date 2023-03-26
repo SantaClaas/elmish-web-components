@@ -42,11 +42,11 @@ function generateActive(
 function generateNew(
   idRangeStart: number,
   idRangeEnd: number,
-  whichSub: Subscribe<unknown>
-): NewSubscription<unknown>[] {
+  whichSub: Subscribe<void>
+): NewSubscription<void>[] {
   const count = idRangeEnd + 1 - idRangeStart;
   return [...Array(count)].map(
-    (_, index): NewSubscription<unknown> => ({
+    (_, index): NewSubscription<void> => ({
       id: createNewId(idRangeStart + index),
       subscribe: whichSub,
     })
@@ -101,7 +101,7 @@ describe("Differentiation behavior", () => {
     // Arrange
     const activeSubscriptions = generateActive(0, 6, stop);
     const subscriptions = generateNew(0, 6, subscription.subscription);
-    const expected: DifferentiationResult<unknown> = {
+    const expected: DifferentiationResult<void> = {
       duplicates: [],
       toStop: [],
       toKeep: activeSubscriptions,
@@ -118,7 +118,7 @@ describe("Differentiation behavior", () => {
     // Arrange
     const activeSubscriptions = generateActive(0, 6, stop);
     const subscriptions = generateNew(3, 6, subscription.subscription);
-    const expected: DifferentiationResult<unknown> = {
+    const expected: DifferentiationResult<void> = {
       duplicates: [],
       toStop: activeSubscriptions.slice(0, 3),
       toKeep: activeSubscriptions.slice(3, 7),
@@ -131,7 +131,23 @@ describe("Differentiation behavior", () => {
     // Assert
     equals(expected, actual);
   });
-  test.todo("subs are started when not found in active subs");
+  test("subs are started when not found in active subs", () => {
+    // Arrange
+    const activeSubscriptions = generateActive(0, 2, stop);
+    const subscriptions = generateNew(0, 6, subscription.subscription);
+    const expected: DifferentiationResult<void> = {
+      duplicates: [],
+      toStop: [],
+      toKeep: activeSubscriptions,
+      toStart: subscriptions.slice(3, 7),
+    };
+
+    // Act
+    const actual = differentiate(activeSubscriptions, subscriptions);
+
+    // Assert
+    equals(expected, actual);
+  });
   test.todo(
     "subs are started and stopped when subs has new ids and omits old ids"
   );
