@@ -11,12 +11,51 @@ import { HandleErrorFunction } from "./error";
 
 export type None = [];
 
-export type SubscriptionId = Array<string>;
+export type SubscriptionId = string[];
+/**
+ * A function that creates a key for comparison from a value
+ */
+type ToKeyFunction<TValue, TKey> = (value: TValue) => TKey;
+// We have the problem that fsharp compares by value mostly but JS doesn't in Set and others.
+// We could:
+// 1. Make subscription Id just a concatinated string instead of a string array which gets compared by reference
+// 2. Implement our own set on top of set to concatinate subscription id arrays and then compare them. Downside is this creates overhead and we might need to add similiar measures elsewhere instead of relying on string comparison.
+// I choose option 2 as I don't fully understand the repurcussions of deviating from the elmish standard wich uses string array as id
+class ExtendedSet<TKey, TValue> {
+  #internalSet: Set<TKey>;
+  #toKey: ToKeyFunction<TValue, TKey>;
+  constructor(toKey: ToKeyFunction<TValue, TKey>, ids: TValue[] = []) {
+    this.#toKey = toKey;
+    this.#internalSet = new Set(ids.map(toKey));
+  }
+
+  has(id: TValue) {
+    const key = this.#toKey(id);
+    return this.#internalSet.has(key);
+  }
+
+  add(id: TValue) {
+    const key = this.#toKey(id);
+    this.#internalSet.add(key);
+    return this;
+  }
+}
+
+function idToKey(value: SubscriptionId) {
+  // Please note we can only convert from an id to a key, not reverse as the id consists of random strings that might contain the delimiter.
+  // The delimiter is only for debugging purposes
+  return value.join(" ");
+}
 
 /**
  * Describes a function to stop the subscription. This enables the subscription to shutdown gracefully and clean up.
  */
 export type StopFunction = () => void;
+
+export type Subscription = {
+  id: SubscriptionId;
+};
+export type ActiveSubscription = Subscription & { stop: StopFunction };
 
 /**
  * Describes a function that starts a subscription and generages new messages when runnning.
@@ -26,40 +65,46 @@ export type Subscribe<TMessage> = (
   dispatch: Dispatch<TMessage>
 ) => StopFunction;
 
-export type Subscription<TMessage> = [SubscriptionId, Subscribe<TMessage>];
-
-//TODO remove this type definition and replace it with the array
-export type Subscriptions<TMessage> = Array<Subscription<TMessage>>;
+export type NewSubscription<TMessage> = Subscription & {
+  subscribe: Subscribe<TMessage>;
+};
 
 export const none: None = [];
 
-type DifferentiateState<TMessage> = [
-  dupes: Array<SubscriptionId>,
-  newKeys: Set<SubscriptionId>,
-  newSubscriptions: Array<Subscription<TMessage>>
-];
+type DifferentiateState<TMessage> = {
+  dupes: SubscriptionId[];
+  newKeys: ExtendedSet<string, SubscriptionId>;
+  newSubscriptions: NewSubscription<TMessage>[];
+};
 // I assume this is creating new values in the orginal too?...Omg yes it does because it is creating new lists because its functional and follows immutability 🤦
 function initial<TMessage>(): DifferentiateState<TMessage> {
-  return [new Array(), new Set(), new Array()];
+  return {
+    dupes: [],
+    newKeys: new ExtendedSet(idToKey),
+    newSubscriptions: [],
+  };
 }
 
 function update<TMessage>(
-  [dupes, newKeys, newSubscriptions]: DifferentiateState<TMessage>,
-  subscription: Subscription<TMessage>
+  { dupes, newKeys, newSubscriptions }: DifferentiateState<TMessage>,
+  subscription: NewSubscription<TMessage>
 ): DifferentiateState<TMessage> {
-  //TODO replace with object notation
-  const [id] = subscription;
+  const { id } = subscription;
   if (newKeys.has(id)) {
     // It's a prepend and new list in the original and I'm careful
-    return [[id, ...dupes], newKeys, newSubscriptions];
+    return { dupes: [id, ...dupes], newKeys, newSubscriptions };
   }
 
   // Else
-  return [dupes, newKeys.add(id), [subscription, ...newSubscriptions]];
+  return {
+    dupes,
+    newKeys: newKeys.add(id),
+    newSubscriptions: [subscription, ...newSubscriptions],
+  };
 }
 
 function calculateNewSubscriptions<TMessage>(
-  subscriptions: Subscriptions<TMessage>
+  subscriptions: NewSubscription<TMessage>[]
 ): DifferentiateState<TMessage> {
   // This calculates the difference?
   return subscriptions.reduceRight(update, initial());
@@ -87,36 +132,35 @@ function partition<TValue>(
   return values.reduce(reducer, [[], []]);
 }
 
-export type DifferentiationResult<TMessage> = [
-  dupes: SubscriptionId[],
-  toStop: [SubscriptionId, StopFunction][],
-  toKeep: [SubscriptionId, StopFunction][],
-  toStart: Subscription<TMessage>[]
-];
+export type DifferentiationResult<TMessage> = {
+  dupes: SubscriptionId[];
+  toStop: ActiveSubscription[];
+  toKeep: ActiveSubscription[];
+  toStart: NewSubscription<TMessage>[];
+};
 
 export function differentiate<TMessage>(
-  activeSubscriptions: Array<[SubscriptionId, StopFunction]>,
-  subscriptions: Subscriptions<TMessage>
+  activeSubscriptions: ActiveSubscription[],
+  subscriptions: NewSubscription<TMessage>[]
 ): DifferentiationResult<TMessage> {
-  const keys = activeSubscriptions.map(([id]) => id);
-  const [dupes, newKeys, newSubscriptions] =
+  const keys = activeSubscriptions.map(({ id }) => id);
+  const { dupes, newKeys, newSubscriptions } =
     calculateNewSubscriptions(subscriptions);
-
   // If keys "set" and new keys set are equal
   if (keys.every((key) => newKeys.has(key))) {
-    return [dupes, [], activeSubscriptions, []];
+    return { dupes, toStop: [], toKeep: activeSubscriptions, toStart: [] };
   }
 
   // Else
   const [toKeep, toStop] = partition(
-    ([id]: [SubscriptionId, StopFunction]) => newKeys.has(id),
+    ({ id }: ActiveSubscription) => newKeys.has(id),
     activeSubscriptions
   );
 
-  const keysSet = new Set(keys);
-  const hasStarted = ([id]: Subscription<TMessage>) => !keysSet.has(id);
+  const keysSet = new ExtendedSet(idToKey, keys);
+  const hasStarted = ({ id }: NewSubscription<TMessage>) => !keysSet.has(id);
   const toStart = newSubscriptions.filter(hasStarted);
-  return [dupes, toStop, toKeep, toStart];
+  return { dupes, toStop, toKeep, toStart };
 }
 
 function toString(subscriptionId: SubscriptionId) {
@@ -147,12 +191,12 @@ function choose<TValue, TResult>(
 export function change<TMessage>(
   onError: HandleErrorFunction,
   dispatch: Dispatch<TMessage>,
-  [dupes, toStop, toKeep, toStart]: DifferentiationResult<TMessage>
-): [SubscriptionId, StopFunction][] {
+  { dupes, toStop, toKeep, toStart }: DifferentiationResult<TMessage>
+): ActiveSubscription[] {
   dupes.forEach((dupe) => warnDupe(onError, dupe));
   stopSubscriptions(onError, toStop);
 
-  const started: [SubscriptionId, StopFunction][] = choose(
+  const started: ActiveSubscription[] = choose(
     (subscription) => tryStart(onError, dispatch, subscription),
     toStart
   );
@@ -163,11 +207,11 @@ export function change<TMessage>(
 function tryStart<TMessage>(
   onError: HandleErrorFunction,
   dispatch: Dispatch<TMessage>,
-  subscription: Subscription<TMessage>
-): [SubscriptionId, StopFunction] | false {
-  const [id, start] = subscription;
+  subscription: NewSubscription<TMessage>
+): ActiveSubscription | false {
+  const { id, subscribe: start } = subscription;
   try {
-    return [id, start(dispatch)];
+    return { id, stop: start(dispatch) };
   } catch (error) {
     onError(`Error starting subscription: ${toString(id)}`, error);
     return false;
@@ -176,7 +220,7 @@ function tryStart<TMessage>(
 
 function tryStop(
   onError: HandleErrorFunction,
-  [subscriptionId, stopSubscription]: [SubscriptionId, StopFunction]
+  { id: subscriptionId, stop: stopSubscription }: ActiveSubscription
 ) {
   try {
     stopSubscription();
@@ -187,7 +231,7 @@ function tryStop(
 
 export function stopSubscriptions(
   onError: HandleErrorFunction,
-  subscriptions: Array<[SubscriptionId, StopFunction]>
+  subscriptions: ActiveSubscription[]
 ) {
   subscriptions.forEach((subscription) => tryStop(onError, subscription));
 }

@@ -1,17 +1,15 @@
 // Can't I import the types and consts separately with namespace and without? 🤔
 import { Command, execute, type Dispatch } from "./command";
 import { HandleErrorFunction } from "./error";
-import { Queue, RingBuffer } from "./ring";
+import { Queue } from "./ring";
 import {
-  type Subscriptions,
   type None,
   none,
-  SubscriptionId,
-  Subscribe,
-  StopFunction,
   differentiate,
   change,
   stopSubscriptions,
+  ActiveSubscription,
+  NewSubscription,
 } from "./subscription";
 
 // Me trying to copy https://github.com/elmish/elmish to TypeScript:
@@ -36,7 +34,7 @@ type ViewFunction<TModel, TMessage, TView> = (
 
 type SubscribeFunction<TModel, TMessage> = (
   model: TModel
-) => Subscriptions<TMessage>;
+) => NewSubscription<TMessage>[];
 
 type Predicate<TMessage> = (message: TMessage) => boolean;
 type HandleTerminateFunction<TModel> = (model: TModel) => void;
@@ -153,7 +151,7 @@ function withConsoleTrace<TArgument, TModel, TMessage, TView>(
     const subscriptions = program.subscribe(model);
     console.log(
       "Updated subscriptions: ",
-      subscriptions.map(([id]: [SubscriptionId, Subscribe<TMessage>]) => id)
+      subscriptions.map(({ id }: NewSubscription<TMessage>) => id)
     );
 
     return subscriptions;
@@ -274,7 +272,7 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
   const messageQueue = new Queue<TMessage>();
   let isReentered = false;
   let state = model;
-  let activeSubscriptions: Array<[SubscriptionId, StopFunction]> = [];
+  let activeSubscriptions: ActiveSubscription[] = [];
   let isTerminated = false;
 
   // How good is JS with recursion? Or should I make this into a loop?
@@ -319,12 +317,12 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
 
         state = newState;
         // Doing a step in between compared to original because we don't have the pipe operator
-        const differentiationState = differentiate(
+        const differentiationState = differentiate<TMessage>(
           activeSubscriptions,
           subscriptions
         );
 
-        activeSubscriptions = change(
+        activeSubscriptions = change<TMessage>(
           program.onError,
           dispatch,
           differentiationState
@@ -344,7 +342,7 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
     command
   );
   // Step inbetween becasue no pipe operator
-  const differentiationResult = differentiate(
+  const differentiationResult = differentiate<TMessage>(
     activeSubscriptions,
     subscription
   );
