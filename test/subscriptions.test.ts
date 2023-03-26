@@ -6,6 +6,7 @@ import {
   NewSubscription,
   Subscribe,
   Subscription,
+  SubscriptionId,
   type StopFunction,
 } from "../lib/subscription";
 
@@ -15,8 +16,8 @@ type SubscriptionContainer<TMessage> = {
 };
 
 const stop: StopFunction = () => {};
-const subscription: SubscriptionContainer<unknown> = {
-  subscription: (_) => stop,
+const subscription: SubscriptionContainer<void> = {
+  subscription: () => stop,
   dupe: (_) => stop,
 };
 
@@ -24,7 +25,7 @@ function createNewId(index: number) {
   return ["subscription", index.toString()];
 }
 
-function generate(
+function generateActive(
   idRangeStart: number,
   idRangeEnd: number,
   stop: StopFunction
@@ -38,7 +39,7 @@ function generate(
   );
 }
 
-function generateSubscription(
+function generateNew(
   idRangeStart: number,
   idRangeEnd: number,
   whichSub: Subscribe<unknown>
@@ -54,35 +55,38 @@ function generateSubscription(
 
 // Helper functions
 
-function toKeys(subscriptions: Subscription[]) {
+function toKeys(subscriptions: Subscription[]): SubscriptionId[] {
   return subscriptions.map(({ id }) => id);
 }
 
+type ResultToCompare = {
+  duplicates: SubscriptionId[];
+  toStop: SubscriptionId[];
+  toKeep: SubscriptionId[];
+  toStart: SubscriptionId[];
+};
 function toIds({
-  dupes,
+  duplicates,
   toStop,
   toKeep,
   toStart,
-}: DifferentiationResult<unknown>) {
+}: DifferentiationResult<unknown>): ResultToCompare {
   return {
-    dupes,
+    duplicates,
     toStop: toKeys(toStop),
     toKeep: toKeys(toKeep),
     toStart: toKeys(toStart),
   };
 }
 
-// Dupes is a tuple here
-function toIds2({ dupes, toStop, toKeep, toStart }) {
+function toIds2({ duplicates, toStop, toKeep, toStart }): ResultToCompare {
   return {
-    dupes: toKeys(dupes),
+    duplicates: toKeys(duplicates),
     toStop: toKeys(toStop),
     toKeep: toKeys(toKeep),
     toStart: toKeys(toStart),
   };
 }
-
-const run = differentiate;
 
 function equals(expected, actual) {
   const idsExpected = toIds2(expected);
@@ -94,18 +98,39 @@ function equals(expected, actual) {
 describe("Differentiation behavior", () => {
   // Port these tests from elmish
   test("no changes when subs and active subs are the same", () => {
-    const activeSubscriptions = generate(0, 6, stop);
-    const subscriptions = generateSubscription(0, 6, subscription.subscription);
+    // Arrange
+    const activeSubscriptions = generateActive(0, 6, stop);
+    const subscriptions = generateNew(0, 6, subscription.subscription);
     const expected: DifferentiationResult<unknown> = {
-      dupes: [],
+      duplicates: [],
       toStop: [],
       toKeep: activeSubscriptions,
       toStart: [],
     };
-    const actual = run(activeSubscriptions, subscriptions);
+
+    // Act
+    const actual = differentiate(activeSubscriptions, subscriptions);
+
+    // Assert
     equals(expected, actual);
   });
-  test.todo("active subs are stopped when not found in subs");
+  test("active subs are stopped when not found in subs", () => {
+    // Arrange
+    const activeSubscriptions = generateActive(0, 6, stop);
+    const subscriptions = generateNew(3, 6, subscription.subscription);
+    const expected: DifferentiationResult<unknown> = {
+      duplicates: [],
+      toStop: activeSubscriptions.slice(0, 3),
+      toKeep: activeSubscriptions.slice(3, 7),
+      toStart: [],
+    };
+
+    // Act
+    const actual = differentiate(activeSubscriptions, subscriptions);
+
+    // Assert
+    equals(expected, actual);
+  });
   test.todo("subs are started when not found in active subs");
   test.todo(
     "subs are started and stopped when subs has new ids and omits old ids"

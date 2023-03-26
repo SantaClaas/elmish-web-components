@@ -72,38 +72,38 @@ export type NewSubscription<TMessage> = Subscription & {
 export const none: None = [];
 
 type DifferentiateState<TMessage> = {
-  dupes: SubscriptionId[];
+  duplicates: SubscriptionId[];
   newKeys: ExtendedSet<string, SubscriptionId>;
   newSubscriptions: NewSubscription<TMessage>[];
 };
 // I assume this is creating new values in the orginal too?...Omg yes it does because it is creating new lists because its functional and follows immutability 🤦
 function initial<TMessage>(): DifferentiateState<TMessage> {
   return {
-    dupes: [],
+    duplicates: [],
     newKeys: new ExtendedSet(idToKey),
     newSubscriptions: [],
   };
 }
 
 function update<TMessage>(
-  { dupes, newKeys, newSubscriptions }: DifferentiateState<TMessage>,
+  { duplicates, newKeys, newSubscriptions }: DifferentiateState<TMessage>,
   subscription: NewSubscription<TMessage>
 ): DifferentiateState<TMessage> {
   const { id } = subscription;
   if (newKeys.has(id)) {
     // It's a prepend and new list in the original and I'm careful
-    return { dupes: [id, ...dupes], newKeys, newSubscriptions };
+    return { duplicates: [id, ...duplicates], newKeys, newSubscriptions };
   }
 
   // Else
   return {
-    dupes,
+    duplicates: duplicates,
     newKeys: newKeys.add(id),
     newSubscriptions: [subscription, ...newSubscriptions],
   };
 }
 
-function calculateNewSubscriptions<TMessage>(
+function findDuplicates<TMessage>(
   subscriptions: NewSubscription<TMessage>[]
 ): DifferentiateState<TMessage> {
   // This calculates the difference?
@@ -122,18 +122,18 @@ function partition<TValue>(
     value: TValue
   ): [TValue[], TValue[]] {
     if (predicate(value)) {
-      return [[value, ...trueResults], falseResults];
+      return [[...trueResults, value], falseResults];
     }
 
     // Else
-    return [trueResults, [value, ...falseResults]];
+    return [trueResults, [...falseResults, value]];
   }
 
   return values.reduce(reducer, [[], []]);
 }
 
 export type DifferentiationResult<TMessage> = {
-  dupes: SubscriptionId[];
+  duplicates: SubscriptionId[];
   toStop: ActiveSubscription[];
   toKeep: ActiveSubscription[];
   toStart: NewSubscription<TMessage>[];
@@ -144,11 +144,16 @@ export function differentiate<TMessage>(
   subscriptions: NewSubscription<TMessage>[]
 ): DifferentiationResult<TMessage> {
   const keys = activeSubscriptions.map(({ id }) => id);
-  const { dupes, newKeys, newSubscriptions } =
-    calculateNewSubscriptions(subscriptions);
+  const { duplicates, newKeys, newSubscriptions } =
+    findDuplicates(subscriptions);
   // If keys "set" and new keys set are equal
   if (keys.every((key) => newKeys.has(key))) {
-    return { dupes, toStop: [], toKeep: activeSubscriptions, toStart: [] };
+    return {
+      duplicates,
+      toStop: [],
+      toKeep: activeSubscriptions,
+      toStart: [],
+    };
   }
 
   // Else
@@ -158,9 +163,9 @@ export function differentiate<TMessage>(
   );
 
   const keysSet = new ExtendedSet(idToKey, keys);
-  const hasStarted = ({ id }: NewSubscription<TMessage>) => !keysSet.has(id);
-  const toStart = newSubscriptions.filter(hasStarted);
-  return { dupes, toStop, toKeep, toStart };
+  const isStarted = ({ id }: NewSubscription<TMessage>) => !keysSet.has(id);
+  const toStart = newSubscriptions.filter(isStarted);
+  return { duplicates, toStop, toKeep, toStart };
 }
 
 function toString(subscriptionId: SubscriptionId) {
@@ -191,9 +196,9 @@ function choose<TValue, TResult>(
 export function change<TMessage>(
   onError: HandleErrorFunction,
   dispatch: Dispatch<TMessage>,
-  { dupes, toStop, toKeep, toStart }: DifferentiationResult<TMessage>
+  { duplicates, toStop, toKeep, toStart }: DifferentiationResult<TMessage>
 ): ActiveSubscription[] {
-  dupes.forEach((dupe) => warnDupe(onError, dupe));
+  duplicates.forEach((duplicates) => warnDupe(onError, duplicates));
   stopSubscriptions(onError, toStop);
 
   const started: ActiveSubscription[] = choose(
