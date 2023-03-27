@@ -14,3 +14,7 @@ This library is using [Elmish](https://github.com/elmish/elmish). The code was c
 
 - Featue: Good looking console debug
 - Follow https://www.w3.org/WAI/ARIA/apg/
+
+# ✨ Features ✨
+
+- 🚧 Nice console debugging
