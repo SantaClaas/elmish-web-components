@@ -1,5 +1,5 @@
 import { assert, expect, test } from "vitest";
-import { Queue, RingBuffer } from "../lib/ring";
+import { Queue, RingBuffer } from "../../src/elmish/ring";
 
 type Pop = { type: "Operation.Pop" };
 type Push = { type: "Operation.Push"; positiveNumber: number };

@@ -1,6 +1,10 @@
-import { batch, Command, ofMessage } from "../lib/command";
+import { batch, Command, ofMessage } from "../../src/elmish/command";
 import { expect, test } from "vitest";
-import { InitializeFunction, makeProgram, runWith } from "../lib/program";
+import {
+  InitializeFunction,
+  makeProgram,
+  runWith,
+} from "../../src/elmish/program";
 
 type Model = number;
 
