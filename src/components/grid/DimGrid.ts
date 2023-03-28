@@ -5,11 +5,12 @@
  * aabbbb
  * cccddd
  * cccddd
- * Each letter is called a "token". I can be any character e.g. this would be valid too
+ * Each letter is called a "token". It can be any valid character e.g.
  * ||!!!!
  * ||!!!!
  * $$$---
  * $$$---
+ * (...are those valid HTML?...)
  * We calculate the ratio of each element by counting the tokens width and height starting on the top left
  * The element will create slots based on how many different tokens there are. The slots name will be their token.
  * It is an excerise in building web components.
