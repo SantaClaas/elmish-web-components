@@ -1,3 +1,5 @@
+import { createReferenceHashSet, ReferenceHashSet } from "./equality";
+
 /**
  * Represents a set of outputs for an AdaptiveObject. The references to all
  * contained elements are weak and the datastructure allows to add/remove entries.
@@ -89,9 +91,149 @@ export interface IAdaptiveObject {
   isConstant: boolean;
 }
 
-// export abstract class AdaptiveObject implements IAdaptiveObject {
-//     tag: object;
-//     weak: WeakRef<AdaptiveObject>;
-//     level: number;
+export class WeakOutputSet {
+  static arrayThreshold = 8;
 
-// }
+  #count: number = 0;
+  #data: object | null = null;
+
+  add(object: IAdaptiveObject): boolean {
+    if (this.#count === 0) {
+      this.#data = object;
+      this.#count = 1;
+      return true;
+    }
+
+    if (this.#count === 1) {
+      if (this.#data === object) return false;
+
+      const array = [...Array(8)];
+      array[0] = this.#data;
+      array[1] = object;
+
+      this.#data = array;
+      this.#count = 2;
+      return true;
+    }
+
+    if (this.#count <= WeakOutputSet.arrayThreshold) {
+      const array = <IAdaptiveObject[]>this.#data;
+
+      // Linear search for object and check if it is in here
+      for (let index = 0; index < array.length; index++) {
+        // Not new, return
+        if (object === array[index]) return false;
+      }
+
+      // If we are withing array boundary
+      if (this.#count < array.length) {
+        array[this.#count] = object;
+        this.#count = this.#count + 1;
+        return true;
+      }
+
+      // Else switch to set
+      const set = createReferenceHashSet(array);
+
+      for (const element of array) {
+        set.add(element);
+      }
+
+      this.#count++;
+      this.#data = set;
+      if (set.has(object)) return false;
+      set.add(object);
+      return true;
+    }
+
+    const set = <ReferenceHashSet<IAdaptiveObject>>this.#data;
+    if (set.has(object)) return false;
+
+    set.add(object);
+    return true;
+  }
+
+  remove(object: IAdaptiveObject): boolean {
+    // Case no object
+    if (this.#count === 0) {
+      return false;
+    }
+
+    if (this.#count === 1) {
+      // Case one object
+      if (object !== this.#data) return false;
+
+      this.#count = 0;
+      this.#data = null;
+      return true;
+    }
+
+    // Case Array before we switched to set
+    if (this.#count < WeakOutputSet.arrayThreshold) {
+      const array = this.#data as IAdaptiveObject[];
+
+      // Linear search?
+      let index = 0;
+      for (; index < array.length; index++) {
+        if (array[index] === object) break;
+      }
+
+      // Case not found
+      if (index === array.length) {
+        return false;
+      }
+
+      // Case found
+      // Rewrote this section to early return to reduce nesting.
+      // Not sure if it was written without on purpose originally
+      const newCount = this.#count - 1;
+      // Check if we go back to the other data structure
+      if (newCount === 1) {
+        this.#data = index === 0 ? array[1] : array[0];
+        this.#count = newCount;
+        return true;
+      }
+
+      if (newCount === index) {
+        array[index] = null!;
+        this.#count = newCount;
+        return true;
+      }
+
+      array[index] = array[newCount];
+      array[newCount] = null!;
+      this.#count = newCount;
+      return true;
+    }
+
+    // Case Set
+
+    const set = this.#data as ReferenceHashSet<IAdaptiveObject>;
+
+    if (set.delete(object)) {
+      this.#count = set.size;
+
+      // If we go below, go back to array internal data structure
+      if (this.#count <= WeakOutputSet.arrayThreshold) {
+        this.#data = [...set];
+      }
+
+      return true;
+    }
+
+    return false;
+  }
+
+  consume(): [IAdaptiveObject[], number] {
+    if (this.#count == 0) return [[], 0];
+
+    if (this.#count === 1) {
+      const data = this.#data;
+      this.#data = null;
+      this.#count = 0;
+      return [[data as IAdaptiveObject], 0];
+    }
+
+    if()
+  }
+}
