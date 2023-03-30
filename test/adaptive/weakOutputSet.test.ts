@@ -1,5 +1,8 @@
 import { expect, test } from "vitest";
-import { IAdaptiveObject, WeakOutputSet } from "../../src/adaptive/core/core";
+import {
+  IAdaptiveObject,
+  FableWeakOutputSet,
+} from "../../src/adaptive/core/core";
 import { AdaptiveObject } from "../../src/adaptive/core/adaptiveObject";
 import { ByReference } from "../../src/adaptive/byReference";
 const gc = require("expose-gc/function");
@@ -16,7 +19,7 @@ test("[WeakOutputset] add", () => {
     const expectedAddResults = Array.from(Array(size), () => true);
 
     // Act
-    const set = new WeakOutputSet();
+    const set = new FableWeakOutputSet();
     const addResults = many.map((man) => set.add(man));
 
     // Assert
@@ -31,7 +34,7 @@ test("[WeakOutputSet] consume", () => {
     const many = Array.from(Array(size), () => new NonEqualObject());
 
     // Act
-    const set = new WeakOutputSet();
+    const set = new FableWeakOutputSet();
     many.forEach((man) => set.add(man));
     const array: ByReference<Array<IAdaptiveObject>> = {
       // Null cheating, I know
@@ -57,7 +60,7 @@ test("[WeakOutputSet] remove", () => {
     const expectedResults = Array.from(Array(size), () => true);
 
     // Act
-    const set = new WeakOutputSet();
+    const set = new FableWeakOutputSet();
     const addResults = many.map((man) => set.add(man));
     const removeResults = many.map((man) => set.remove(man));
 
@@ -77,7 +80,7 @@ test("[WeakOutputSet] actually weak", () => {
   relevantSizes.forEach((size) => {
     // Arrange
     // Add dead as in add dead objects?
-    const set = new WeakOutputSet();
+    const set = new FableWeakOutputSet();
     // function addDead() {
     //   Array.from(Array(size), () => new NonEqualObject()).forEach(set.add);
     // }
