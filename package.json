@@ -7,11 +7,12 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest --globals",
+    "test": "vitest --ui",
+    "test:withgc": "node --expose-gc runTest.js",
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "expose-gc": "^1.0.0",
+    "@vitest/ui": "^0.29.8",
     "typescript": "^4.9.3",
     "vite": "^4.2.0",
     "vitest": "^0.29.7"

@@ -1,4 +1,4 @@
-import { IAdaptiveObject, FableWeakOutputSet } from "./core";
+import { IAdaptiveObject, FableWeakOutputSet, WeakOutputSet } from "./core";
 
 /**
  * Core implementation of IAdaptiveObject containing tools for evaluation
@@ -9,7 +9,7 @@ export class AdaptiveObject implements IAdaptiveObject {
 
   isOutOfDate: boolean = true;
   level: number = 0;
-  outputs = new FableWeakOutputSet();
+  outputs = new WeakOutputSet();
   #weak: WeakRef<IAdaptiveObject> | null = null;
 
   tag: object | null = null;

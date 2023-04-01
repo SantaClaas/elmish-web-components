@@ -302,9 +302,9 @@ export class FableWeakOutputSet implements IWeakOutputSet {
  */
 type VolatileSetData = {
   single: WeakRef<IAdaptiveObject> | null;
-  array: (WeakRef<IAdaptiveObject> | null)[];
+  array: (WeakRef<IAdaptiveObject> | null)[] | null;
   // I think this is the same as Set<WeakRef<IAdaptableObject>> in contrast to source but I am not sure
-  set: IterableWeakSet<IAdaptiveObject>;
+  set: IterableWeakSet<IAdaptiveObject> | null;
   tag: number;
 };
 
@@ -312,16 +312,17 @@ export class WeakOutputSet implements IWeakOutputSet {
   // Yes, I know
   #data: VolatileSetData = {
     single: null,
-    array: null!,
-    set: null!,
+    array: null,
+    set: null,
     tag: 0,
   };
   #setOperationsCount = 0;
-  // Don't need the set operations count because we don't require a clean up function (see why below)
-  #valueReader: IAdaptiveObject | null | undefined = null;
 
   #add(object: IAdaptiveObject): boolean {
     const weakObject = object.weak;
+    // This variable is on the object scope, not method in the original source.
+    // Not sure why. I assume justo on the method scope is ok
+    let valueReader: IAdaptiveObject | undefined;
     switch (this.#data?.tag) {
       case 0:
         if (this.#data.single === null) {
@@ -331,81 +332,92 @@ export class WeakOutputSet implements IWeakOutputSet {
 
         if (this.#data.single === weakObject) return false;
 
-        this.#valueReader = this.#data.single.deref();
-        if (this.#valueReader !== undefined) {
-          const isFound = this.#valueReader === object;
-          this.#valueReader = null;
-          if (isFound) return false;
-
-          const array = Array(8).fill(null);
-
-          // Switch to array as we have two objects
-          array[0] = this.#data.single;
-          array[1] = weakObject;
-          this.#data.tag = 1;
-          this.#data.array = array;
+        valueReader = this.#data.single.deref();
+        if (valueReader === undefined) {
+          // Single is free so set it to new value
+          this.#data.single = weakObject;
           return true;
         }
 
-        this.#data.single = weakObject;
+        // Already set
+        if (valueReader === object) return false;
+
+        // Single is "full" so we switch to array
+        const array = Array(8).fill(null);
+        array[0] = this.#data.single;
+        array[1] = weakObject;
+        this.#data.tag = 1;
+        this.#data.array = array;
+        // Clean up single reference
+        this.#data.single = null;
         return true;
       case 1:
+        // -2 means already added
         let freeIndex = -1;
-        let index = 0;
-        const length = this.#data.array.length;
-        // Nesting I know, I am sorry this is in the original source, might rework if I understand it but I am afraid of mistakes
-        while (index < length) {
-          if (this.#data.array[index] === null) {
-            if (freeIndex < 0) {
-              freeIndex = 1;
-            }
-          } else if (this.#data.array[index] === weakObject) {
-            freeIndex = -2;
-            index = length;
-          } else {
-            this.#valueReader = this.#data.array[index]!.deref();
-            if (this.#valueReader !== undefined) {
-              if (this.#valueReader === object) {
-                freeIndex = -2;
-                index = length;
-              } else {
-                if (freeIndex < 0) {
-                  freeIndex = index;
-                }
-              }
-            }
+        // Array should not be null at this point because then we would have skipped single code above
+        const length = this.#data.array!.length;
+        // Linear search for a free index
+        for (let index = 0; index < length; index++) {
+          const reference = this.#data.array![index];
+          // Found free index
+          if (reference === null) {
+            freeIndex = index;
+            break;
           }
-          index++;
+
+          // Already added
+          if (reference === weakObject) {
+            return false;
+          }
+
+          // Inspect reference
+          valueReader = reference.deref();
+          // Couldn't read means dead reference so we found a free index
+          if (valueReader === undefined) {
+            freeIndex = index;
+            break;
+          }
+
+          if (valueReader === object) {
+            // Same object but different weak reference, so return
+            return false;
+          }
+
+          // Else the weak reference at the current index is alive and belongs to
+          // a different object, this means the index is not free and we continue
         }
 
-        let result: boolean;
-        if (freeIndex === -2) {
-          result = false;
-        } else if (freeIndex >= 0) {
-          this.#data.array[freeIndex] = weakObject;
-          result = true;
-        } else {
-          // Need cast because TS doesn't understand they are not null after the filter
-          // Also remove dead references
-          const all = this.#data.array.filter(
-            (element) => element !== null && element.deref() !== undefined
-          ) as WeakRef<IAdaptiveObject>[];
-          const set = new IterableWeakSet<IAdaptiveObject>(all);
-
-          result = set.add(weakObject);
-
-          this.#data.tag = 2;
-          this.#data.set = set;
+        if (freeIndex >= 0) {
+          // Free index found and object is not already in array, add
+          this.#data.array![freeIndex] = weakObject;
+          return true;
         }
 
-        // Not sure here either. Original sets to defaultof
-        this.#valueReader = null;
+        // Else if we don't have a free index, we switch to the set as the array is full
+
+        // Also remove dead references
+        // No free index and not already in array, switch to set and add new value
+        // Need cast because TS doesn't understand they are not null after the filter
+        const all = this.#data.array!.filter(
+          (element) => element !== null && element.deref() !== undefined
+        ) as WeakRef<IAdaptiveObject>[];
+        const set = new IterableWeakSet<IAdaptiveObject>(all);
+
+        const result = set.add(weakObject);
+
+        this.#data.tag = 2;
+        this.#data.set = set;
+        // Clearn up dangling array reference
+        this.#data.array = null;
         return result;
+
       default:
-        return this.#data.set.add(weakObject);
+        // Set should not be null at this point because then we would have skipped array code above
+        return this.#data.set!.add(weakObject);
     }
   }
 
+  //TODO explore using FinalizationRegistration to clean up instead of calling cleanup every 100 operations
   // The only reason we have to use a manual WeakSet implementation is because the native one
   // is not iterable...
   /**
@@ -454,14 +466,15 @@ export class WeakOutputSet implements IWeakOutputSet {
         this.#data.single = null;
         return true;
       case 1:
+        // Should not be null because we switched before (we love shared mutable state)
         let isFound = false;
-        const length = this.#data.array.length;
+        const length = this.#data.array!.length;
 
         let count = 0;
         let living = null;
 
         for (let index = 0; index < length; index++) {
-          const reference = this.#data.array[index];
+          const reference = this.#data.array![index];
           if (reference === null) continue;
 
           old = reference.deref();
@@ -469,7 +482,7 @@ export class WeakOutputSet implements IWeakOutputSet {
           // Dead reference
           if (old === undefined) {
             // Clean up
-            this.#data.array[index] = null;
+            this.#data.array![index] = null;
             continue;
           }
 
@@ -480,7 +493,7 @@ export class WeakOutputSet implements IWeakOutputSet {
           }
 
           // Yay, found it
-          this.#data.array[index] = null;
+          this.#data.array![index] = null;
           isFound = true;
         }
 
@@ -502,7 +515,8 @@ export class WeakOutputSet implements IWeakOutputSet {
         return isFound;
 
       default:
-        if (!this.#data!.set.remove(object.weak)) return false;
+        // Should not be null because we switched before (we love shared mutable state)
+        if (!this.#data.set!.remove(object.weak)) return false;
 
         this.#setOperationsCount++;
         this.#cleanup();
@@ -526,7 +540,7 @@ export class WeakOutputSet implements IWeakOutputSet {
         return 1;
       case 1: {
         let outputIndex = 0;
-        const array = this.#data.array;
+        const array = this.#data.array!;
         for (let index = 0; index < array.length; index++) {
           const reference = array[index];
           if (reference === null) continue;
@@ -551,7 +565,8 @@ export class WeakOutputSet implements IWeakOutputSet {
 
       default:
         let outputIndex = 0;
-        for (const reference of this.#data.set.values()) {
+        // This iteration is the only reason we can't use the WeakSet
+        for (const reference of this.#data.set!.values()) {
           const object = reference.deref();
           if (object === undefined) continue;
           // Resize if too large
@@ -585,4 +600,20 @@ export class WeakOutputSet implements IWeakOutputSet {
         return false;
     }
   }
+}
+
+export class EmptyOutputSet implements IWeakOutputSet {
+  get isEmpty(): boolean {
+    return true;
+  }
+  add(_: IAdaptiveObject): boolean {
+    return false;
+  }
+  remove(_: IAdaptiveObject): boolean {
+    return false;
+  }
+  consume(_: ByReference<IAdaptiveObject[]>): number {
+    return 0;
+  }
+  clear(): void {}
 }
