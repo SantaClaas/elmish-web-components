@@ -1,4 +1,4 @@
-import { IAdaptiveObject, FableWeakOutputSet, WeakOutputSet } from "./core";
+import { IAdaptiveObject, WeakOutputSet } from "./core";
 
 /**
  * Core implementation of IAdaptiveObject containing tools for evaluation
