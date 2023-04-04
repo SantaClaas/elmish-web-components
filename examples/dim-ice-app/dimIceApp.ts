@@ -9,6 +9,7 @@ const clientSecret = "51Nwi4I83gxxgsqfPWZQLALHlIJgEjlIIh9o_Zdvh10";
 const clientId = "NgtasltAXdbQgao8vU5H1pTLEBX1EGvuNThYYpUhoxA";
 
 // Current location. Should not change while page is active
+// Redirect url needs to be registered with app on mastodon.social
 const redirectUri = new URL("/redirect", location.href);
 
 type AppModel = {
@@ -50,7 +51,8 @@ class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
     switch (message.type) {
       case "setInstance":
         const authorizationUrl = createAuthorizationUrl(message.instance);
-        return [{ authorizationUrl, instance: message.instance }, []];
+        // Yes this allocates a new object but I prefer immutability
+        return [{ ...model, authorizationUrl, instance: message.instance }, []];
     }
   }
 
