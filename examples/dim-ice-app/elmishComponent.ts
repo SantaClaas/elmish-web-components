@@ -1,43 +1,22 @@
-// A typical counter component implementation to try implementing elmish
+// The first attempt at an elmish base component
 
+import { TemplateResult, render } from "lit-html";
 import { Command, Dispatch } from "../../src/elmish/command";
-import { TemplateResult, html, render } from "lit-html";
 
-// Could also just say model is an alias for type number but this is clearer IMO
-type CounterModel = {
-  readonly count: number;
-};
-
-type CounterMessage = "Increase" | "Decrease";
-
-export default class ElmishCounter extends HTMLElement {
+// Not exactly elmish but more like lit-elmish as this relies on lit-html to render the view
+export default abstract class ElmishComponent<
+  TModel,
+  TMessage
+> extends HTMLElement {
   // ⏬ Elmish ⏬
-  initialize(): [CounterModel, Command<CounterMessage>] {
-    return [{ count: 0 }, []];
-  }
+  abstract initialize(): [TModel, Command<TMessage>];
 
-  update(
-    message: CounterMessage,
-    model: CounterModel
-  ): [CounterModel, Command<CounterMessage>] {
-    switch (message) {
-      case "Increase":
-        return [{ count: model.count + 1 }, []];
-      case "Decrease":
-        return [{ count: model.count - 1 }, []];
-    }
-  }
+  abstract update(
+    message: TMessage,
+    model: TModel
+  ): [TModel, Command<TMessage>];
 
-  view(
-    model: CounterModel,
-    dispatch: Dispatch<CounterMessage>
-  ): TemplateResult {
-    return html`<article>
-      <span>${model.count}</span>
-      <button @click="${() => dispatch("Increase")}">Inrease</button>
-      <button @click="${() => dispatch("Decrease")}">Decrease</button>
-    </article>`;
-  }
+  abstract view(model: TModel, dispatch: Dispatch<TMessage>): TemplateResult;
 
   // ⏬ Component lifecycle callbacks ⏬
   connectedCallback() {
@@ -45,7 +24,7 @@ export default class ElmishCounter extends HTMLElement {
     // Run initialization and view?
     const shadowRoot = this.attachShadow({ mode: "open" });
     let [model] = this.initialize();
-    const dispatch: Dispatch<CounterMessage> = (message: CounterMessage) => {
+    const dispatch: Dispatch<TMessage> = (message: TMessage) => {
       const [newModel] = this.update(message, model);
       console.debug("Dispatch", { message, newModel, oldModel: model });
       model = newModel;
@@ -84,5 +63,3 @@ export default class ElmishCounter extends HTMLElement {
     return ["value"];
   }
 }
-
-customElements.define("elmish-counter", ElmishCounter);
