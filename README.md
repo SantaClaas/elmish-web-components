@@ -10,11 +10,14 @@ I wanted to know how elmish works under the hood
 
 This library is using [Elmish](https://github.com/elmish/elmish). The code was copied and converted to TypeScript by me but I think it is fair to say I am using what they build here. Elmish is again based on the Model View Update architecture [made famouns by Elm](https://github.com/elmish/elmish#elmish-elm-like-abstractions-for-f-applications)
 
-# Wish to add
+# ✨ Random Idea list ✨
 
-- Featue: Good looking console debug
-- Follow https://www.w3.org/WAI/ARIA/apg/
+- Integrate navigation and router with subscriptions
+  - when a navigation occurs, a subscription gets triggered and it is resolved client side
+- Integrate attribute change on component with subscriptions
+- Add cool looking console logging for tracer with often overlooked console APIs and console CSS styling
+- Learn and implement Web Accessibility https://www.w3.org/WAI/ARIA/apg/
 
-# ✨ Features ✨
+# A Note on Performance
 
-- 🚧 Nice console debugging
+Performance is not my first concern but important. Much of the code I write is allocating new objects as I prefer immutability and I'll change it when required later when I have concrete measurements.

@@ -1,7 +1,7 @@
 // The dim ice app mastodon client root component
 import { Command, Dispatch } from "../../src/elmish/command";
 
-import { TemplateResult, html, render } from "lit-html";
+import { TemplateResult, html } from "lit-html";
 import ElmishComponent from "./elmishComponent";
 
 // I know you don't include them in source code normally
@@ -12,25 +12,61 @@ const clientId = "NgtasltAXdbQgao8vU5H1pTLEBX1EGvuNThYYpUhoxA";
 // Redirect url needs to be registered with app on mastodon.social
 const redirectUri = new URL("/redirect", location.href);
 
-type AppModel = {
+// These types use tagged unions to emulate unions from F# or other more functional programming languages
+type FirstOpen = {
+  readonly type: "firstOpen";
   readonly instance: string;
   readonly authorizationUrl: URL;
 };
 
-type AppMessage =
-  // Using tagged unions
-  {
-    type: "setInstance";
-    instance: string;
-  };
+/**
+ * Represents the errors that can occur. They are strings but can be complex objects if more information is required
+ */
+type AppError =
+  /**
+   * No code was provided when "/redirect" was opened. It should only be openend during an authorization code flow
+   * and the code should be set as query parameter
+   */
+  | "noCodeRedirect"
+  /**
+   * The browser does not support APIs that are required by the app. The app should try to work and not completely block users
+   * as it is very likely to still work even if incompatibility is detected. But the focus is to support modern browsers as of the time of writing.
+   */
+  | "outdatedBrowser";
+
+type WithError = {
+  error: AppError;
+};
+
+type FirstOpenWithError = FirstOpen & WithError;
+
+/**
+ * Represents the state when the app was openend after a redirect from the authorization code flow
+ */
+type RunningCodeExchangeState = {
+  readonly type: "codeExchange";
+};
+
+/**
+ *  App model represents the different states the app can be in
+ */
+type AppModel = FirstOpen | FirstOpenWithError | RunningCodeExchangeState;
+
+type AppMessage = {
+  type: "setInstance";
+  instance: string;
+};
 
 function createAuthorizationUrl(instance: string) {
+  // Probably should do validation that instance is an url string like "mastodon.social"
   const base = new URL(`https://${instance}/`);
   const authorizationUrl = new URL("/oauth/authorize", base);
   authorizationUrl.searchParams.set("client_id", clientId);
   authorizationUrl.searchParams.set("scope", "read");
-  // authorizationUrl.searchParams.set("redirect_uri", "urn:ietf:wg:oauth:2.0:oob");
-  //TODO make redirect url current app url
+  //TODO make redirect go to url opened by user
+  // When the user openes an url that they got send or saved as bookmark and are not signed in
+  // they will currently be redirected to the start page after the code exchange happened.
+  // They should instead be redirected to the link they originally opened
   authorizationUrl.searchParams.set("redirect_uri", redirectUri.toString());
   authorizationUrl.searchParams.set("response_type", "code");
 
@@ -39,9 +75,31 @@ function createAuthorizationUrl(instance: string) {
 
 class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
   initialize(): [AppModel, Command<AppMessage>] {
+    // Check if we are in authorization code flow
+    if (location.pathname === "/redirect") {
+      // Get code from url
+      const currentLocation = new URL(location.href);
+      const code = currentLocation.searchParams.get("code");
+      // Remove code from url so we don't trigger another exchange accidentally
+      currentLocation.searchParams.delete("code");
+      // Reset path
+      currentLocation.pathname = "";
+
+      if (code === null) {
+        // This is an error. We got navigated to redirect but did not get a code passed as query parameter
+        // Though this is an expectable error as users can just open the app with "/redirect" and not pass an error.
+        // There are many other reasons we can end up in this state
+        // How should we deal with this? Set state to first open state with error message or just log it to console?
+      }
+
+      // Start async code exchange command (side effect)
+
+      return [{ type: "codeExchange" }, []];
+    }
+
     const instance = "mastodon.social";
     const authorizationUrl = createAuthorizationUrl(instance);
-    return [{ instance, authorizationUrl }, []];
+    return [{ type: "firstOpen", instance, authorizationUrl }, []];
   }
 
   update(
@@ -52,22 +110,37 @@ class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
       case "setInstance":
         const authorizationUrl = createAuthorizationUrl(message.instance);
         // Yes this allocates a new object but I prefer immutability
-        return [{ ...model, authorizationUrl, instance: message.instance }, []];
+        return [
+          {
+            ...model,
+            type: "firstOpen",
+            authorizationUrl,
+            instance: message.instance,
+          },
+          [],
+        ];
     }
   }
 
   view(model: AppModel, dispatch: Dispatch<AppMessage>): TemplateResult {
-    return html`<h1>Dim Ice</h1>
-      <input
-        value="${model.instance}"
-        id="instance"
-        @change="${(event: Event) =>
-          dispatch({
-            type: "setInstance",
-            instance: (event.target as HTMLInputElement).value,
-          })}"
-      />
-      <a href="${model.authorizationUrl.href}">Authorize</a>`;
+    // Thanks to union support in TypeScript the compiler can detect that these are the only valid cases and that we don't need to handle default
+    switch (model.type) {
+      case "codeExchange":
+        //TODO improve this short lived UI to be more user friendly and less technical terms
+        return html`<p>Exchaning token...</p>`;
+      case "firstOpen":
+        return html`<h1>Dim Ice</h1>
+          <input
+            value="${model.instance}"
+            id="instance"
+            @change="${(event: Event) =>
+              dispatch({
+                type: "setInstance",
+                instance: (event.target as HTMLInputElement).value,
+              })}"
+          />
+          <a href="${model.authorizationUrl.href}">Authorize</a>`;
+    }
   }
 }
 
