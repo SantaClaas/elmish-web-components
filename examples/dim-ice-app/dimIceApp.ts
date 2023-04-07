@@ -1,5 +1,5 @@
 // The dim ice app mastodon client root component
-import * as command from "../../src/elmish/command";
+import command from "../../src/elmish/command";
 import { type Command, type Dispatch } from "../../src/elmish/command";
 
 import { TemplateResult, html, nothing } from "lit-html";

@@ -198,3 +198,6 @@ export function ofMessage<TMessage>(message: TMessage): Command<TMessage> {
   // A command is just an array of effects
   return [(dispatch: Dispatch<TMessage>) => dispatch(message)];
 }
+
+const command = { ofMessage, none, ofPromise };
+export default command;
