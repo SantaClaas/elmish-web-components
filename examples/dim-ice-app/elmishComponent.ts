@@ -1,7 +1,17 @@
 // The first attempt at an elmish base component
 
 import { TemplateResult, render } from "lit-html";
-import { Command, Dispatch } from "../../src/elmish/command";
+import { type Command, type Dispatch } from "../../src/elmish/command";
+import command from "../../src/elmish/command";
+import { Termination } from "../../src/elmish/program";
+import { Queue } from "../../src/elmish/ring";
+import {
+  ActiveSubscription,
+  change,
+  differentiate,
+  NewSubscription,
+  stopSubscriptions,
+} from "../../src/elmish/subscription";
 
 // Not exactly elmish but more like lit-elmish as this relies on lit-html to render the view
 export default abstract class LitElmishComponent<
@@ -18,23 +28,156 @@ export default abstract class LitElmishComponent<
 
   abstract view(model: TModel, dispatch: Dispatch<TMessage>): TemplateResult;
 
+  /**
+   * Implementing classes can overwrite this method
+   * to start subscription to external state changes
+   * based on the current state.
+   * This is called after the update method was invoked
+   * and generated a new model
+   * Subscriptions provide an id and subscriptions with
+   * the same id will not be started again.
+   * Subscriptions that were returned at one point but weren't at the next point will be stopped.
+   */
+  subscribe(_: TModel): NewSubscription<TMessage>[] {
+    return [];
+  }
+
+  //TODO should this hook into connection callbacks?
+  /**
+   * Implementing classes can overwrite this to configure when termination should occur
+   * and to react to termination.
+   * The should terminate predicate function gets hooked into the update loop and receives
+   * messages based on which it can decide if termination should begin.
+   * After termination has begun the terminate callback will be invoked to give implementers
+   * the chance for clean up
+   */
+  termination: Termination<TMessage, TModel> = [(_) => false, () => {}];
+
+  // Error handling callback
+  //TODO this is copied from program which has a callback defined but there might be a better approach
+  onError(message: string, error: unknown) {
+    //TODO Figure out something better 😬
+    console.error(message, error);
+  }
+
   // ⏬ Component lifecycle callbacks ⏬
   connectedCallback() {
     console.debug("Connected");
-    // Run initialization and view?
+
+    // This part is to set up lit rendering
     const shadowRoot = this.attachShadow({ mode: "open" });
-    let [model] = this.initialize();
-    const dispatch: Dispatch<TMessage> = (message: TMessage) => {
-      const [newModel] = this.update(message, model);
-      console.debug("Dispatch", { message, newModel, oldModel: model });
-      model = newModel;
-      const newView = this.view(model, dispatch);
-      render(newView, shadowRoot);
+    const setState = (model: TModel, dispatch: Dispatch<TMessage>) => {
+      //TODO we should probably optimize rendering again based on old and new model
+      const template = this.view(model, dispatch);
+
+      render(template, shadowRoot);
     };
 
-    const view = this.view(model, dispatch);
+    // This is from the elmish program loop
 
-    render(view, shadowRoot);
+    // The program loop but inside the component
+    // I might reconsider this and use program module which is called by this component
+    // This is a lot of state, I could consider going more in the object oriented way
+    // and make a class that contains this
+    const [model, initialCommand] = this.initialize();
+    const initialSubscription = this.subscribe(model);
+    const [isTerminationRequested, terminate] = this.termination;
+    let activeSubscriptions: ActiveSubscription[] = [];
+    let currentState: TModel = model;
+
+    // Messages need to be processes in the order they arrived (First In, First Out)
+    const messageQueue = new Queue<TMessage>();
+    // This flag is set while we process messages so we don't
+    // start processing messages while already processing
+    let isProcessingMessages = false;
+    let isTerminated = false;
+
+    // Defined as constant value to have "this" in scope
+    const processMessages = () => {
+      let nextMessage = messageQueue.dequeue();
+
+      // Stop loop in case of termination
+      while (!isTerminated && nextMessage !== undefined) {
+        if (isTerminationRequested(nextMessage)) {
+          stopSubscriptions(this.onError, activeSubscriptions);
+          terminate(currentState);
+          // Break out of processing
+          return;
+        }
+
+        // The update loop. It might add new messages to the message queue
+        // when the dispatch callback is invoked.
+        // We hand it the first message that is waiting in queue
+        const [newState, newCommand] = this.update(nextMessage, currentState);
+        // Next we give the component the chance to start subscriptions based on the new state
+        // Subscriptions have an id to avoid starting them again
+        const subscriptions = this.subscribe(newState);
+        // Inside the setState function the program or component can call the view function to render the UI
+        setState(newState, dispatch);
+
+        // Execute commands
+        command.execute(
+          (error) =>
+            this.onError(`Error handling the message: ${nextMessage}`, error),
+          dispatch,
+          newCommand
+        );
+
+        // Completed run, set new to current
+        currentState = newState;
+
+        // Find subscriptions that need to be started and which ones need to be stopped
+        const difference = differentiate<TMessage>(
+          activeSubscriptions,
+          subscriptions
+        );
+
+        // Stops no longer active subscriptions and starts not started ones
+        activeSubscriptions = change<TMessage>(
+          this.onError,
+          dispatch,
+          difference
+        );
+
+        // Complete loop
+        nextMessage = messageQueue.dequeue();
+      }
+    };
+
+    // The dispatch function is how we hook into the loop
+    // and provide users a way to update the state
+    // to start processing messages if there are new one as long as we are not terminated
+    function dispatch(message: TMessage) {
+      // Break loop
+      if (isTerminated) return;
+
+      // Enqueue messages to be processed
+      messageQueue.enqueue(message);
+      // Start processing if it hasn't started yet
+      if (isProcessingMessages) return;
+
+      isProcessingMessages = true;
+      processMessages();
+      isProcessingMessages = false;
+    }
+
+    // First start of loop
+    isProcessingMessages = true;
+    setState(model, dispatch);
+    command.execute(
+      (error) => this.onError(`Error initialzing`, error),
+      dispatch,
+      initialCommand
+    );
+
+    const difference = differentiate<TMessage>(
+      activeSubscriptions,
+      initialSubscription
+    );
+
+    activeSubscriptions = change(this.onError, dispatch, difference);
+    processMessages();
+    isProcessingMessages = false;
   }
 
   disconnectedCallback() {
