@@ -52,7 +52,7 @@ export function ofEffect<TMessage>(
   return [effect];
 }
 
-const ofFunction = {
+export const ofFunction = {
   /**
    * Command to evaluate a simple function and map the result
    * into success or error (of exception)
@@ -121,18 +121,13 @@ const ofFunction = {
 };
 
 // Port note: Changed 'Async' and 'Task' to JS terms which is 'Promise'
-/**
- * This "module" allows creating async commands that can be started with a custom start implementation.
- * It might not be necessary in our implementation since the original source code supports fable and
- * non fable while we have only our implementation
- */
-const ofPromiseWith = {
+// This "module" uses a lot of "fire and forget" but we catch the errors
+export const ofPromise = {
   /**
    * Command that will evaluate an async block and map the result
    * into success or error (of exception)
    */
   either<TArgument, TResult, TMessage>(
-    start: (promise: Promise<void>) => void,
     task: (argument: TArgument) => Promise<TResult>,
     argument: TArgument,
     ofSuccess: (result: TResult) => TMessage,
@@ -149,15 +144,13 @@ const ofPromiseWith = {
       }
     }
 
-    // F# has a nice syntax for chaining functions to create a new function `bind >> start`
-    return [(dispatch) => start(bind(dispatch))];
+    return [bind];
   },
 
   /**
    * Command that will evaluate an async block and map the success
    */
   perform<TArgument, TResult, TMessage>(
-    start: (promise: Promise<void>) => void,
     task: (argument: TArgument) => Promise<TResult>,
     argument: TArgument,
     ofSuccess: (result: TResult) => TMessage
@@ -173,14 +166,13 @@ const ofPromiseWith = {
     }
 
     // F# has a nice syntax for chaining functions to create a new function `bind >> start`
-    return [(dispatch) => start(bind(dispatch))];
+    return [bind];
   },
 
   /**
    *  Command that will evaluate an async block and map the error (of exception)
    */
   attempt<TArgument, TMessage>(
-    start: (promise: Promise<void>) => void,
     task: (argument: TArgument) => Promise<void>,
     argument: TArgument,
     ofError: (error: unknown) => TMessage
@@ -195,57 +187,9 @@ const ofPromiseWith = {
     }
 
     // F# has a nice syntax for chaining functions to create a new function `bind >> start`
-    return [(dispatch) => start(bind(dispatch))];
+    return [bind];
   },
 };
-
-function start(toStart: () => Promise<void>) {
-  // Fire and forget is fine because we catche errors in our bind function
-  toStart();
-}
-// Port note:
-const ofPromise = {
-  /**
-   * Command that will evaluate an async block and map the result
-   * into success or error (of exception)
-   */
-  either<TArgument, TResult, TMessage>(
-    start: (promise: Promise<void>) => void,
-    task: (argument: TArgument) => Promise<TResult>,
-    argument: TArgument,
-    ofSuccess: (result: TResult) => TMessage,
-    ofError: (error: unknown) => TMessage
-  ): Command<TMessage> {
-    return ofPromiseWith.either(start, task, argument, ofSuccess, ofError);
-  },
-
-  /**
-   * Command that will evaluate an async block and map the success
-   */
-  perform<TArgument, TResult, TMessage>(
-    start: (promise: Promise<void>) => void,
-    task: (argument: TArgument) => Promise<TResult>,
-    argument: TArgument,
-    ofSuccess: (result: TResult) => TMessage
-  ): Command<TMessage> {
-    return ofPromiseWith.perform(start, task, argument, ofSuccess);
-  },
-
-  /**
-   *  Command that will evaluate an async block and map the error (of exception)
-   */
-  attempt<TArgument, TMessage>(
-    start: (promise: Promise<void>) => void,
-    task: (argument: TArgument) => Promise<void>,
-    argument: TArgument,
-    ofError: (error: unknown) => TMessage
-  ): Command<TMessage> {
-    return ofPromiseWith.attempt(start, task, argument, ofError);
-  },
-};
-
-// Port note: Did not implement OfAsyncImmediate because these concepts don't exist here
-// We can think about an implementation with web workers
 
 /**
  * Command to issue a specific message
