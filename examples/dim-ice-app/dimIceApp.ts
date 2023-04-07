@@ -3,6 +3,8 @@ import command from "../../src/elmish/command";
 import { type Command, type Dispatch } from "../../src/elmish/command";
 
 import { TemplateResult, html, nothing } from "lit-html";
+import { repeat } from "lit-html/directives/repeat.js";
+import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
 import LitElmishComponent from "./elmishComponent";
 
 // I know you don't include them in source code normally
@@ -283,9 +285,9 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
         // Might consider changing when measurable disadvantage exists
         return [
           {
-            ...model,
             type: "firstOpen",
             authorizationUrl,
+            instance: model.instance,
           },
           command.none,
         ];
@@ -319,6 +321,7 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
   }
 
   view(model: AppModel, dispatch: Dispatch<AppMessage>): TemplateResult {
+    console.debug("🐘", model);
     // Thanks to union support in TypeScript the compiler can detect that these are the only valid cases and that we don't need to handle default
     switch (model.type) {
       case "codeExchange":
@@ -347,7 +350,17 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
         return html`<p>Loading toots...</p>`;
 
       case "homeTimeline":
-        return html`<h1>Home Timeline</h1>`;
+        return html`<h1>Home Timeline</h1>
+          <ul>
+            ${repeat(
+              model.stati,
+              (status) => status.id,
+              (item, index) =>
+                //TODO can we trust the HTML provided by a mastodon instance to not inject JS causing a Cross Site
+                // Scripting attack (XSS)?
+                html`<article>${unsafeHTML(item.content)}</article>`
+            )}
+          </ul>`;
     }
   }
 }
