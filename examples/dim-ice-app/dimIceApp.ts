@@ -206,6 +206,29 @@ function createErrorUi(error?: AppError): TemplateResult | typeof nothing {
       return nothing;
   }
 }
+
+const accessTokenStorageKey = "dim ice access token";
+function tryLoadAccessToken(): AccessTokenResponse | undefined {
+  //TODO better differentiate errrors
+  // We don't have persistent storage in incognito windows
+  if (!("localStorage" in window)) return undefined;
+
+  const value = localStorage.getItem(accessTokenStorageKey);
+  if (value === null) return undefined;
+
+  //TODO error handling
+  return JSON.parse(value);
+}
+
+function saveAccessToken(token: AccessTokenResponse) {
+  //TODO better differentiate errrors
+  // We don't have persistent storage in incognito windows
+  if (!("localStorage" in window)) return undefined;
+
+  const value = JSON.stringify(token);
+  localStorage.setItem(accessTokenStorageKey, value);
+}
+
 class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
   initialize(): [AppModel, Command<AppMessage>] {
     // Default instance for now
@@ -217,6 +240,8 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
 
     const authorizationUrl = createAuthorizationUrl(instance.baseUrl);
     // Check if we are in authorization code flow
+    // This takes precedence before trying to load an existing access token in case the user wants to authorize with
+    // a different instance
     if (location.pathname === "/redirect") {
       // Get code from url
       const currentLocation = new URL(location.href);
@@ -226,6 +251,7 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
       // Reset path
       currentLocation.pathname = "";
 
+      //TODO consider moving side effects into commands
       //TODO use new navigation api in chromium and fallback to old and crufty history
       history.replaceState({}, "", currentLocation.href);
       if (code === null) {
@@ -261,14 +287,36 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
 
       return [{ type: "codeExchange", instance }, exchangeCommand];
     }
+    // Try to load existing access token
+    const token = tryLoadAccessToken();
+    if (token === undefined)
+      return [
+        {
+          type: "firstOpen",
+          authorizationUrl,
+          instance,
+        },
+        command.none,
+      ];
 
+    //TODO should I set the token with the command to not duplicate code in update method or should it be duplicate
+    // and set directly to loading timeline. I could just write a function to not duplicate.
+    // const setCommand = command.ofMessage<AppMessage>({
+    //   type: "setAccessToken",
+    //   token,
+    // });
+    const fetchTimelineCommand = command.ofPromise.perform(
+      () => getHomeTimeline(instance.baseUrl, token.access_token),
+      undefined,
+      (stati): AppMessage => ({ type: "setStati", stati })
+    );
     return [
       {
-        type: "firstOpen",
-        authorizationUrl,
-        instance,
+        type: "loadingTimeline",
+        token: token,
+        instance: instance,
       },
-      command.none,
+      fetchTimelineCommand,
     ];
   }
 
@@ -300,13 +348,24 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
           undefined,
           (stati): AppMessage => ({ type: "setStati", stati })
         );
+
+        // Effect describes side effects which can be put into commands?
+        const persistTokenCommand = command.ofEffect<AppMessage>(() =>
+          saveAccessToken(message.token)
+        );
+
+        const commands = command.batch([
+          fetchTimelineCommand,
+          persistTokenCommand,
+        ]);
+
         return [
           {
             type: "loadingTimeline",
             token: message.token,
             instance: model.instance,
           },
-          fetchTimelineCommand,
+          commands,
         ];
       case "setStati":
         return [
@@ -321,7 +380,6 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
   }
 
   view(model: AppModel, dispatch: Dispatch<AppMessage>): TemplateResult {
-    console.debug("🐘", model);
     // Thanks to union support in TypeScript the compiler can detect that these are the only valid cases and that we don't need to handle default
     switch (model.type) {
       case "codeExchange":
