@@ -36,11 +36,11 @@ type SubscribeFunction<TModel, TMessage> = (
   model: TModel
 ) => NewSubscription<TMessage>[];
 
-type Predicate<TMessage> = (message: TMessage) => boolean;
+type ShouldTerminate<TMessage> = (message: TMessage) => boolean;
 type HandleTerminateFunction<TModel> = (model: TModel) => void;
 
-type Termination<TMessage, TModel> = [
-  Predicate<TMessage>,
+export type Termination<TMessage, TModel> = [
+  ShouldTerminate<TMessage>,
   HandleTerminateFunction<TModel>
 ];
 
@@ -176,7 +176,7 @@ function withErrorHandler<TArgument, TModel, TMessage, TView>(
 }
 
 function withTermination<TArgument, TModel, TMessage, TView>(
-  predicate: Predicate<TMessage>,
+  predicate: ShouldTerminate<TMessage>,
   terminate: HandleTerminateFunction<TModel>,
   program: Program<TArgument, TModel, TMessage, TView>
 ) {
@@ -258,7 +258,6 @@ function identity<TValue>(value: TValue) {
 }
 
 function runWithDispatch<TArgument, TModel, TMessage, TView>(
-  syncDispatch: (dispatch: Dispatch<TMessage>) => Dispatch<TMessage>,
   argument: TArgument,
   program: Program<TArgument, TModel, TMessage, TView>
 ) {
@@ -288,10 +287,6 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
     isReentered = false;
   }
 
-  // Idk why it is called "serialized"
-  function serializedDispatch(message: TMessage) {
-    return syncDispatch(dispatch)(message);
-  }
   function processMessages() {
     // let nextMessage = ringBuffer.pop();
     let nextMessage = messageQueue.dequeue();
@@ -304,7 +299,7 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
       } else {
         const [newState, command] = program.update(nextMessage, state);
         const subscriptions = program.subscribe(newState);
-        program.setState(newState, serializedDispatch);
+        program.setState(newState, dispatch);
         execute(
           (error) =>
             program.onError(
@@ -335,10 +330,10 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
   }
 
   isReentered = true;
-  program.setState(model, serializedDispatch);
+  program.setState(model, dispatch);
   execute(
     (error) => program.onError(`Error initializing command: ${command}`, error),
-    serializedDispatch,
+    dispatch,
     command
   );
   // Step inbetween becasue no pipe operator
@@ -346,7 +341,11 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
     activeSubscriptions,
     subscription
   );
-  change(program.onError, serializedDispatch, differentiationResult);
+  activeSubscriptions = change(
+    program.onError,
+    dispatch,
+    differentiationResult
+  );
   processMessages();
   isReentered = false;
 }
@@ -355,7 +354,7 @@ export function runWith<TArgument, TModel, TMessage, TView>(
   argument: TArgument,
   program: Program<TArgument, TModel, TMessage, TView>
 ) {
-  runWithDispatch(identity, argument, program);
+  runWithDispatch(argument, program);
 }
 
 function run<TModel, TMessage, TView>(
