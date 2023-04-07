@@ -1,7 +1,7 @@
 // The dim ice app mastodon client root component
 import { Command, Dispatch } from "../../src/elmish/command";
 
-import { TemplateResult, html } from "lit-html";
+import { TemplateResult, html, nothing } from "lit-html";
 import ElmishComponent from "./elmishComponent";
 
 // I know you don't include them in source code normally
@@ -17,6 +17,7 @@ type FirstOpen = {
   readonly type: "firstOpen";
   readonly instance: string;
   readonly authorizationUrl: URL;
+  readonly error?: AppError;
 };
 
 /**
@@ -34,12 +35,6 @@ type AppError =
    */
   | "outdatedBrowser";
 
-type WithError = {
-  error: AppError;
-};
-
-type FirstOpenWithError = FirstOpen & WithError;
-
 /**
  * Represents the state when the app was openend after a redirect from the authorization code flow
  */
@@ -50,7 +45,7 @@ type RunningCodeExchangeState = {
 /**
  *  App model represents the different states the app can be in
  */
-type AppModel = FirstOpen | FirstOpenWithError | RunningCodeExchangeState;
+type AppModel = FirstOpen | RunningCodeExchangeState;
 
 type AppMessage = {
   type: "setInstance";
@@ -75,6 +70,8 @@ function createAuthorizationUrl(instance: string) {
 
 class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
   initialize(): [AppModel, Command<AppMessage>] {
+    const instance = "mastodon.social";
+    const authorizationUrl = createAuthorizationUrl(instance);
     // Check if we are in authorization code flow
     if (location.pathname === "/redirect") {
       // Get code from url
@@ -90,6 +87,16 @@ class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
         // Though this is an expectable error as users can just open the app with "/redirect" and not pass an error.
         // There are many other reasons we can end up in this state
         // How should we deal with this? Set state to first open state with error message or just log it to console?
+
+        return [
+          {
+            type: "firstOpen",
+            authorizationUrl,
+            instance,
+            error: "noCodeRedirect",
+          },
+          [],
+        ];
       }
 
       // Start async code exchange command (side effect)
@@ -97,8 +104,6 @@ class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
       return [{ type: "codeExchange" }, []];
     }
 
-    const instance = "mastodon.social";
-    const authorizationUrl = createAuthorizationUrl(instance);
     return [{ type: "firstOpen", instance, authorizationUrl }, []];
   }
 
@@ -122,6 +127,26 @@ class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
     }
   }
 
+  static #createErrorUi(error?: AppError): TemplateResult | typeof nothing {
+    //TODO implement proper error ui
+    switch (error) {
+      case "noCodeRedirect":
+        return html`<p>
+          No code was provided for authorization code flow. If you tried to sign
+          in please go <a href="/">back</a> and try again
+        </p>`;
+
+      case "outdatedBrowser":
+        return html`<p>
+          Your browser might not be up to date or doesn't fully support this
+          app. Some features might not work as expected.
+        </p>`;
+
+      case undefined:
+        return nothing;
+    }
+  }
+
   view(model: AppModel, dispatch: Dispatch<AppMessage>): TemplateResult {
     // Thanks to union support in TypeScript the compiler can detect that these are the only valid cases and that we don't need to handle default
     switch (model.type) {
@@ -129,7 +154,9 @@ class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
         //TODO improve this short lived UI to be more user friendly and less technical terms
         return html`<p>Exchaning token...</p>`;
       case "firstOpen":
+        const errorNotification = DimIceApp.#createErrorUi(model.error);
         return html`<h1>Dim Ice</h1>
+          ${errorNotification}
           <input
             value="${model.instance}"
             id="instance"
