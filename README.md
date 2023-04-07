@@ -17,6 +17,10 @@ This library is using [Elmish](https://github.com/elmish/elmish). The code was c
 - Integrate attribute change on component with subscriptions
 - Add cool looking console logging for tracer with often overlooked console APIs and console CSS styling
 - Learn and implement Web Accessibility https://www.w3.org/WAI/ARIA/apg/
+- Add documentation "how to do x" where x could be something like "routing" and it explains that route change is just a change to the app model
+- The awesome thing about elmish is that there are just a couple of base concepts and everything else fits into these concepts which makes understanding easier
+- Extract token management to service worker which intercepts requests and automatically sets authorization header to bearer token. This makes calling the api easier and separates authorization concerns cleanly. Service worker is choosen because it is the only thing that can intercept requests
+- Test if I can save a "snapshot" of the app model to some persistent storage and return to that state when the app is openend again
 
 # A Note on Performance
 
