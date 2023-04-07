@@ -288,7 +288,7 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
     isReentered = false;
   }
 
-  // Idk why it is serialized
+  // Idk why it is called "serialized"
   function serializedDispatch(message: TMessage) {
     return syncDispatch(dispatch)(message);
   }

@@ -4,7 +4,7 @@ import { TemplateResult, render } from "lit-html";
 import { Command, Dispatch } from "../../src/elmish/command";
 
 // Not exactly elmish but more like lit-elmish as this relies on lit-html to render the view
-export default abstract class ElmishComponent<
+export default abstract class LitElmishComponent<
   TModel,
   TMessage
 > extends HTMLElement {

@@ -3,7 +3,7 @@ import command from "../../src/elmish/command";
 import { type Command, type Dispatch } from "../../src/elmish/command";
 
 import { TemplateResult, html, nothing } from "lit-html";
-import ElmishComponent from "./elmishComponent";
+import LitElmishComponent from "./elmishComponent";
 
 // I know you don't include them in source code normally
 const clientSecret = "51Nwi4I83gxxgsqfPWZQLALHlIJgEjlIIh9o_Zdvh10";
@@ -184,7 +184,27 @@ async function getHomeTimeline(instanceBaseUrl: URL, token: AccessToken) {
   return (await response.json()) as StatusResponse[];
 }
 
-class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
+function createErrorUi(error?: AppError): TemplateResult | typeof nothing {
+  //TODO implement proper error ui
+  switch (error) {
+    case "noCodeRedirect":
+      return html`<p>
+        No code was provided for authorization code flow. If you tried to sign
+        in please go <a href="/">back</a> and try again
+      </p>`;
+
+    case "outdatedBrowser":
+      return html`<p>
+        Your browser might not be up to date or doesn't fully support this app.
+        Some features might not work as expected.
+      </p>`;
+
+    // In case we have no error
+    case undefined:
+      return nothing;
+  }
+}
+class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
   initialize(): [AppModel, Command<AppMessage>] {
     // Default instance for now
     const defaultInstance = "mastodon.social";
@@ -204,6 +224,7 @@ class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
       // Reset path
       currentLocation.pathname = "";
 
+      //TODO use new navigation api in chromium and fallback to old and crufty history
       history.replaceState({}, "", currentLocation.href);
       if (code === null) {
         // This is an error. We got navigated to redirect but did not get a code passed as query parameter
@@ -297,27 +318,6 @@ class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
     }
   }
 
-  static #createErrorUi(error?: AppError): TemplateResult | typeof nothing {
-    //TODO implement proper error ui
-    switch (error) {
-      case "noCodeRedirect":
-        return html`<p>
-          No code was provided for authorization code flow. If you tried to sign
-          in please go <a href="/">back</a> and try again
-        </p>`;
-
-      case "outdatedBrowser":
-        return html`<p>
-          Your browser might not be up to date or doesn't fully support this
-          app. Some features might not work as expected.
-        </p>`;
-
-      // In case we have no error
-      case undefined:
-        return nothing;
-    }
-  }
-
   view(model: AppModel, dispatch: Dispatch<AppMessage>): TemplateResult {
     // Thanks to union support in TypeScript the compiler can detect that these are the only valid cases and that we don't need to handle default
     switch (model.type) {
@@ -326,7 +326,7 @@ class DimIceApp extends ElmishComponent<AppModel, AppMessage> {
         return html`<p>Exchaning token...</p>`;
 
       case "firstOpen":
-        const errorNotification = DimIceApp.#createErrorUi(model.error);
+        const errorNotification = createErrorUi(model.error);
         // Using instance.hostname instead of host which would include the port (if specified)
         // The assumption is that instances run on https default port 443 all the time
         // This assumption should make selection of instance easier
