@@ -199,5 +199,5 @@ export function ofMessage<TMessage>(message: TMessage): Command<TMessage> {
   return [(dispatch: Dispatch<TMessage>) => dispatch(message)];
 }
 
-const command = { ofMessage, none, ofPromise };
+const command = { ofMessage, none, ofPromise, execute };
 export default command;
