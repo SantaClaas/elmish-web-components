@@ -2,6 +2,7 @@ import { UrlString } from "./string";
 
 /**
  * Represents a custom emoji.
+ * https://docs.joinmastodon.org/entities/CustomEmoji/
  */
 type CustomEmoji = {
   /**
