@@ -25,6 +25,7 @@ This library is using [Elmish](https://github.com/elmish/elmish). The code was c
 - The awesome thing about elmish is that there are just a couple of base concepts and everything else fits into these concepts which makes understanding easier
 - Extract token management to service worker which intercepts requests and automatically sets authorization header to bearer token. This makes calling the api easier and separates authorization concerns cleanly. Service worker is choosen because it is the only thing that can intercept requests
 - Test if I can save a "snapshot" of the app model to some persistent storage and return to that state when the app is openend again
+- Add settings like VS Code extensions https://code.visualstudio.com/api/references/contribution-points#contributes.configuration
 
 # A Note on Performance
 

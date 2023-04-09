@@ -2,9 +2,43 @@ import { Iso8601DateString } from "../iso8601DateTime";
 import FilterKeyword from "./filterKeyword";
 import FilterStatus from "./filterStatus";
 
-type Context = "home" | "notifications" | "public" | "thread" | "account";
+/**
+ * The contexts in which a filter should be applied.
+ */
+type Context =
+  /**
+   *  home timeline and lists
+   */
+  | "home"
+  /**
+   * notifications timeline
+   */
+  | "notifications"
+  /**
+   * public timelines
+   */
+  | "public"
+  /**
+   * expanded thread of a detailed status
+   */
+  | "thread"
+  /**
+   * when viewing a profile
+   */
+  | "account";
 
-type FilterAction = "warn" | "hide";
+/**
+ * The action to be taken when a status matches a filter.
+ */
+type FilterAction =
+  /**
+   * show a warning that identifies the matching filter by title, and allow the user to expand the filtered status. This is the default (and unknown values should be treated as equivalent to warn).
+   */
+  | "warn"
+  /**
+   * do not show this status if it is received
+   */
+  | "hide";
 
 /**
  * Represents a user-defined filter for determining which statuses should not be shown to the user.
