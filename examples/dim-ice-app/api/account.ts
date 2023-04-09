@@ -142,5 +142,20 @@ type Account = {
    * When the most recent status was posted.
    */
   last_status_at: Iso8601DateString | null;
+
+  /**
+   * How many statuses are attached to this account.
+   */
+  statuses_count: number;
+
+  /**
+   * The reported followers of this profile.
+   */
+  followers_count: number;
+
+  /**
+   * The reported follows of this profile.
+   */
+  following_Count: number;
 };
 export default Account;
