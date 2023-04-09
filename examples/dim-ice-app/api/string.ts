@@ -16,3 +16,13 @@ export type UrlString = string;
  * Represents a string that contains HTML but is not checked against XSS attacks or other malicious content
  */
 export type UnsafeHtmlString = string;
+
+/**
+ * Represents a unix timestamp as string but not guaranteed
+ */
+export type UnixTimestampString = string;
+
+/**
+ * Represents a number that is actuallly a string but not guaranteed
+ */
+export type NumberString = string;
