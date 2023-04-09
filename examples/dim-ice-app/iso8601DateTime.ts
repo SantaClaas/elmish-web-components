@@ -14,7 +14,7 @@ export interface Date {
    * Give a more precise return type to the method `toISOString()`:
    * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toISOString
    */
-  toISOString(): Iso8601DateTime;
+  toISOString(): Iso8601DateTimeString;
 }
 
 type Year = `${number}${number}${number}${number}`;
@@ -27,7 +27,7 @@ type Milliseconds = `${number}${number}`;
 /**
  * Represent a string like `2021-01-08`
  */
-type Iso8601Date = `${Year}-${Month}-${Day}`;
+export type Iso8601DateString = `${Year}-${Month}-${Day}`;
 /**
  * Represent a string like `14:42:34.678`
  */
@@ -40,5 +40,5 @@ type Iso8601Time = `${Hours}:${Minutes}:${Seconds}.${Milliseconds}`;
  * it would result in a warning from TypeScript:
  *   "Expression produces a union type that is too complex to represent. ts(2590)
  */
-type Iso8601DateTime = `${Iso8601Date}T${Iso8601Time}Z`;
-export default Iso8601DateTime;
+type Iso8601DateTimeString = `${Iso8601DateString}T${Iso8601Time}Z`;
+export default Iso8601DateTimeString;

@@ -1,31 +1,11 @@
-import Iso8601DateTime from "../iso8601DateTime";
+import Iso8601DateTimeString from "../iso8601DateTime";
 import FilterResult from "./FilterResult";
 import Account from "./account";
 import CustomEmoji from "./customEmoji";
 import MediaAttachment from "./mediaAttachment";
 import Poll from "./poll";
 import PreviewCard from "./previewCard";
-
-// Alias
-/**
- * A string very likely in the URI format but not guaranteed. Not to be confused with UrlString.
- */
-type UriString = string;
-
-/**
- * A string very likely in the URL format but not guaranteed. Not to be confused with UriString.
- */
-type UrlString = string;
-
-/**
- * Represents a string that contains HTML but is not checked against XSS attacks or other malicious content
- */
-type UnsafeHtmlString = string;
-
-/**
- * ISO 639 Part 1 two-letter language code e.g. "en", "de". not "en-GB", "en-US", "de-DE", "de-AU"
- */
-type Iso639Part1TwoLetterLanguageCode = string;
+import { UrlString, UriString, UnsafeHtmlString } from "./string";
 
 // Supporting types
 /**
@@ -117,7 +97,7 @@ type Status = {
   /**
    * The date when this status was created.
    */
-  createdAt: Iso8601DateTime;
+  createdAt: Iso8601DateTimeString;
 
   /**
    * The account that authored this status.
@@ -228,7 +208,7 @@ type Status = {
   /**
    * Timestamp of when the status was last edited.
    */
-  edited_at: Iso8601DateTime | null;
+  edited_at: Iso8601DateTimeString | null;
 
   /**
    * If the current token has an authorized user: Have you favourited this status?
