@@ -8,15 +8,17 @@
       name="Description"
       content="Dim Ice, a Mastodon client to only see posts you haven't seen"
     />
-    <meta name="color-scheme" content="dark" />
     <title>Dim Ice</title>
     <base href="/" />
     <!-- <link rel="icon" href="./assets/logo.svg" /> -->
+    <link rel="stylesheet" href="/style.css" />
     <script type="module" src="/examples/dim-ice-app/dimIceApp.ts"></script>
+    <meta name="color-scheme" content="dark" />
     <style>
-      :root {
-        font-family: system-ui;
-        color: #deddd5;
+      @media (--OSLight) {
+        :root {
+          background: red;
+        }
       }
     </style>
   </head>
