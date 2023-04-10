@@ -26,6 +26,8 @@ This library is using [Elmish](https://github.com/elmish/elmish). The code was c
 - Extract token management to service worker which intercepts requests and automatically sets authorization header to bearer token. This makes calling the api easier and separates authorization concerns cleanly. Service worker is choosen because it is the only thing that can intercept requests
 - Test if I can save a "snapshot" of the app model to some persistent storage and return to that state when the app is openend again
 - Add settings like VS Code extensions https://code.visualstudio.com/api/references/contribution-points#contributes.configuration
+- Use new Temporal API for dates https://tc39.es/proposal-temporal/docs/index.html
+  Seeems to work in Chrome but not Firefox
 
 # A Note on Performance
 
