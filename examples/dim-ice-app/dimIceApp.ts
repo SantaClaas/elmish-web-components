@@ -7,6 +7,7 @@ import { repeat } from "lit-html/directives/repeat.js";
 import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
 import LitElmishComponent from "./elmishComponent";
 import Status from "./api/status";
+import Account from "./api/account";
 
 // I know you don't include them in source code normally
 const clientSecret = "51Nwi4I83gxxgsqfPWZQLALHlIJgEjlIIh9o_Zdvh10";
@@ -222,6 +223,37 @@ function saveAccessToken(token: AccessTokenResponse) {
   localStorage.setItem(accessTokenStorageKey, value);
 }
 
+/**
+ * If the name does not end with 's' it appends and 's, else just a '
+ * https://www.ef.com/wwen/english-resources/english-grammar/forming-possessive
+ */
+function formPossessive(name: string) {
+  if (name.length === 0) return name;
+
+  return name[name.length - 1] === "s" ? name + "'" : name + "'s";
+}
+
+/**
+ * Puts the account's avatar into a picture element that loads the static version of the avatar if reduced motion is
+ * preferred by the user agent
+ */
+function accountAvatar(account: Account) {
+  // Easy accessibility win with picture element 😀
+  // Turns out I wasn't the only one with this idea:
+  // https://bradfrost.com/blog/post/reducing-motion-with-the-picture-element/
+  const name = formPossessive(account.display_name);
+
+  // According to this: https://stackoverflow.com/a/48207973 the alterative (alt) text has to be placed on the img
+  // element
+  return html`<picture>
+    <source
+      srcset="${account.avatar_static}"
+      media="(prefers-reduced-motion: reduce)"
+    />
+
+    <img srcset="${account.avatar}" alt="${name} avatar" />
+  </picture>`;
+}
 class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
   initialize(): [AppModel, Command<AppMessage>] {
     // Default instance for now
@@ -402,7 +434,7 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
 
       case "homeTimeline":
         console.debug(model.stati[0]);
-        return html`<h1>Home Timeline</h1>
+        return html` <h1>Home Timeline</h1>
           <ul>
             ${repeat(
               model.stati,
@@ -410,13 +442,11 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
               (status, index) => {
                 const isRetoot =
                   status.content === "" && status.reblog !== null;
+
                 //TODO can we trust the HTML provided by a mastodon instance to not inject JS causing a Cross Site
                 // Scripting attack (XSS)?
                 return html` <article>
-                  <img
-                    src="${status.account.avatar}"
-                    alt="avatar for ${status.account.display_name}"
-                  />
+                  ${accountAvatar(status.account)}
                   <span>${status.account.display_name}</span>
                   <time datetime="${status.created_at}"
                     >${new Date(status.created_at).toLocaleString()}</time
@@ -425,11 +455,7 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
 
                   ${isRetoot
                     ? html` <p>Retotee:</p>
-                        <img
-                          src="${status.reblog?.account.avatar}"
-                          alt="avatar for ${status.reblog?.account
-                            .display_name}"
-                        />
+                        ${accountAvatar(status.reblog!.account)}
                         <span>${status.reblog?.account.display_name}</span>
                         <time datetime="${status.reblog?.created_at}"
                           >${new Date(
@@ -450,5 +476,4 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
   }
 }
 
-HTMLTimeElement;
 customElements.define("dim-ice-app", DimIceApp);
