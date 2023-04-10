@@ -1,4 +1,4 @@
-// Different alias types for string because strings often represent different things or object and have a lot of
+// Different alias types for string because strings often represent different things or objects and have a lot of
 // different meanings that get lost without typing. As usual with TypeScript, these types don't guarantee that they are
 // in the promised format during runtime
 

@@ -6,6 +6,7 @@ import { TemplateResult, html, nothing } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
 import LitElmishComponent from "./elmishComponent";
+import Status from "./api/status";
 
 // I know you don't include them in source code normally
 const clientSecret = "51Nwi4I83gxxgsqfPWZQLALHlIJgEjlIIh9o_Zdvh10";
@@ -57,7 +58,7 @@ type LoadingTimeline = {
  */
 type HomeTimeline = {
   readonly type: "homeTimeline";
-  readonly stati: StatusResponse[];
+  readonly stati: Status[];
 };
 
 /**
@@ -95,7 +96,7 @@ type AppMessage =
     }
   | {
       readonly type: "setStati";
-      readonly stati: StatusResponse[];
+      readonly stati: Status[];
     };
 
 function createInstanceBaseUrl(instance: string) {
@@ -163,14 +164,6 @@ async function exchangeCodeForToken(
   return (await response.json()) as AccessTokenResponse;
 }
 
-/**
- * Partial representation of a status returned from the mastodon (home) timeline API endpoint
- */
-type StatusResponse = {
-  id: string;
-  content: string;
-};
-
 // Returns the stati posted to the home timeline
 async function getHomeTimeline(instanceBaseUrl: URL, token: AccessToken) {
   const url = new URL("/api/v1/timelines/home", instanceBaseUrl);
@@ -183,7 +176,7 @@ async function getHomeTimeline(instanceBaseUrl: URL, token: AccessToken) {
   });
 
   //TODO response code error handling
-  return (await response.json()) as StatusResponse[];
+  return (await response.json()) as Status[];
 }
 
 function createErrorUi(error?: AppError): TemplateResult | typeof nothing {
@@ -408,19 +401,54 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
         return html`<p>Loading toots...</p>`;
 
       case "homeTimeline":
+        console.debug(model.stati[0]);
         return html`<h1>Home Timeline</h1>
           <ul>
             ${repeat(
               model.stati,
               (status) => status.id,
-              (item, index) =>
+              (status, index) => {
+                const isRetoot =
+                  status.content === "" && status.reblog !== null;
                 //TODO can we trust the HTML provided by a mastodon instance to not inject JS causing a Cross Site
                 // Scripting attack (XSS)?
-                html`<article>${unsafeHTML(item.content)}</article>`
+                return html` <article>
+                  <img
+                    src="${status.account.avatar}"
+                    alt="avatar for ${status.account.display_name}"
+                  />
+                  <span>${status.account.display_name}</span>
+                  <time datetime="${status.created_at}"
+                    >${new Date(status.created_at).toLocaleString()}</time
+                  >
+                  <p>Is Retoot: ${isRetoot ? "yes" : "no"}</p>
+
+                  ${isRetoot
+                    ? html` <p>Retotee:</p>
+                        <img
+                          src="${status.reblog?.account.avatar}"
+                          alt="avatar for ${status.reblog?.account
+                            .display_name}"
+                        />
+                        <span>${status.reblog?.account.display_name}</span>
+                        <time datetime="${status.reblog?.created_at}"
+                          >${new Date(
+                            status.reblog!.created_at
+                          ).toLocaleString()}</time
+                        >`
+                    : nothing}
+                  <p>
+                    ${unsafeHTML(
+                      isRetoot ? status.reblog?.content : status.content
+                    )}
+                  </p>
+                </article>`;
+              }
             )}
           </ul>`;
     }
   }
 }
 
+HTMLTimeElement;
 customElements.define("dim-ice-app", DimIceApp);
