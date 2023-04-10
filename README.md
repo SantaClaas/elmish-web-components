@@ -2,19 +2,26 @@
 
 A Web App Component Framework built with Elmish on top of lit-html
 
-# Why not just use Fable and F#?
+## Why not just use Fable and F#?
 
 I find F# to be the nicer language but TS is more practical and offers a lot of functional program functionality (hehe) too.
 
-# Why not just compile elmish to JS and import that
+## Why not just compile elmish to JS and import that
 
 I wanted to know how elmish works under the hood
 
-# Attribution
+## Attribution
 
 This library is using [Elmish](https://github.com/elmish/elmish). The code was copied and converted to TypeScript by me but I think it is fair to say I am using what they build here. Elmish is again based on the Model View Update architecture [made famouns by Elm](https://github.com/elmish/elmish#elmish-elm-like-abstractions-for-f-applications)
 
-# ✨ Random Idea list ✨
+### Others:
+
+- Open Props:
+  - Setting up open props: https://stackblitz.com/edit/jit-open-props?file=index.css
+  - https://youtu.be/szPNMKZazzQ
+  - https://youtu.be/ohJcZW60br0
+
+## ✨ Random Idea list ✨
 
 - Integrate navigation and router with subscriptions
   - when a navigation occurs, a subscription gets triggered and it is resolved client side
@@ -28,7 +35,10 @@ This library is using [Elmish](https://github.com/elmish/elmish). The code was c
 - Add settings like VS Code extensions https://code.visualstudio.com/api/references/contribution-points#contributes.configuration
 - Use new Temporal API for dates https://tc39.es/proposal-temporal/docs/index.html
   Seeems to work in Chrome but not Firefox
+- Use ETag from response header with If-None-Match request header and use caching to reduce bandwith and improve load times. See [MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag)
+- Use link header with rel="next" from mastodon api for pagination
+- Try out material color utiilties https://www.npmjs.com/package/@material/material-color-utilities
 
-# A Note on Performance
+## A Note on Performance
 
 Performance is not my first concern but important. Much of the code I write is allocating new objects as I prefer immutability and I'll change it when required later when I have concrete measurements.
