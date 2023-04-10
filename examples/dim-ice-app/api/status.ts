@@ -97,7 +97,7 @@ type Status = {
   /**
    * The date when this status was created.
    */
-  createdAt: Iso8601DateTimeString;
+  created_at: Iso8601DateTimeString;
 
   /**
    * The account that authored this status.
