@@ -38,6 +38,10 @@ This library is using [Elmish](https://github.com/elmish/elmish). The code was c
 - Use ETag from response header with If-None-Match request header and use caching to reduce bandwith and improve load times. See [MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag)
 - Use link header with rel="next" from mastodon api for pagination
 - Try out material color utiilties https://www.npmjs.com/package/@material/material-color-utilities
+- Use PostCSS plugins to fix custom media queries causing dark mode to break with open props
+- Use :host pseudo selector to try and style custom element for grid component
+- Use :blank pseudo selector to try fix styling of outlined input when autofilled
+
 
 ## A Note on Performance
 
