@@ -12,11 +12,11 @@ I wanted to know how elmish works under the hood
 
 ## Attribution
 
-This library is using [Elmish](https://github.com/elmish/elmish). The code was copied and converted to TypeScript by me but I think it is fair to say I am using what they build here. Elmish is again based on the Model View Update architecture [made famouns by Elm](https://github.com/elmish/elmish#elmish-elm-like-abstractions-for-f-applications)
+- This library is using [Elmish](https://github.com/elmish/elmish). The code was copied and converted to TypeScript by me. Elmish is again based on the Model View Update architecture [made famouns by Elm](https://github.com/elmish/elmish#elmish-elm-like-abstractions-for-f-applications)
 
-### Others:
+- [fast-blurhash](https://github.com/mad-gooze/fast-blurhash) [License](https://github.com/mad-gooze/fast-blurhash/blob/main/LICENSE) based on [Blurhash](https://github.com/woltapp/blurhash/), to decode blurhash provided by Mastodon API to show a preview of images or use as background fill instead of black bars. [fast-blurhash](https://github.com/mad-gooze/fast-blurhash) seems to offer a ✨ Performance ✨ improvement at no additional cost (although the improvement is debatable as I didn't measure it in the app)
 
-- Open Props:
+- Open Props, because it makes styling web components with CSS variables easier
   - Setting up open props: https://stackblitz.com/edit/jit-open-props?file=index.css
   - https://youtu.be/szPNMKZazzQ
   - https://youtu.be/ohJcZW60br0
@@ -42,6 +42,7 @@ This library is using [Elmish](https://github.com/elmish/elmish). The code was c
 - Use :blank pseudo selector to try fix styling of outlined input when autofilled
 - Follow guidelines https://docs.joinmastodon.org/api/guidelines
   - Use link header with rel="next" from mastodon api for pagination
+- Add ⚖️ licenses page and find out how to include license in source code
 
 ## A Note on Performance
 

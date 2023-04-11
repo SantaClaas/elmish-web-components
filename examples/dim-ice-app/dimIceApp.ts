@@ -1,15 +1,19 @@
 // The dim ice app mastodon client root component
 import command from "../../src/elmish/command";
 import { type Command, type Dispatch } from "../../src/elmish/command";
-
 import { TemplateResult, html, nothing } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
+import { ref } from "lit-html/directives/ref.js";
 import LitElmishComponent from "./elmishComponent";
 import Status from "./api/status";
 import Account from "./api/account";
+import MediaAttachment from "./api/mediaAttachment";
+import { decodeBlurHash } from "fast-blurhash";
+import { decode } from "blurhash";
 
-// I know you don't include them in source code normally
+// I know you don't include them in source code normallyn
+// Client credentials can be created on the fly
 const clientSecret = "51Nwi4I83gxxgsqfPWZQLALHlIJgEjlIIh9o_Zdvh10";
 const clientId = "NgtasltAXdbQgao8vU5H1pTLEBX1EGvuNThYYpUhoxA";
 
@@ -167,7 +171,7 @@ async function exchangeCodeForToken(
 
 // Returns the stati posted to the home timeline
 async function getHomeTimeline(instanceBaseUrl: URL, token: AccessToken) {
-  const url = new URL("/api/v1/timelines/home", instanceBaseUrl);
+  const url = new URL("/api/v1/timelines/home?limit=40", instanceBaseUrl);
 
   //TODO error handling
   const response = await fetch(url, {
@@ -258,6 +262,85 @@ function accountAvatar(account: Account): TemplateResult {
   </picture>`;
 }
 
+function mediaAttachment(
+  attachment: MediaAttachment
+): TemplateResult | typeof nothing {
+  console.debug(attachment.type);
+  //TODO move this to a pre processing step not into rendering
+  const pixels = decode(
+    attachment.blurhash,
+    attachment.meta.original?.width!,
+    attachment.meta.original?.height!
+  );
+  // new ImageBitmap().
+  const data = new ImageData(
+    pixels,
+    attachment.meta.original?.width!,
+    attachment.meta.original?.height!
+  );
+
+  const a = new Blob([data.data]);
+  btoa;
+  const url = URL.createObjectURL(a);
+  // createImageBitmap(data);
+  // URL.createObjectURL()
+  // createImageBitmap()
+  function callback(canvas?: Element) {
+    console.debug("🐘", canvas);
+
+    const c = canvas as HTMLCanvasElement;
+    const a = c.getContext("2d");
+    a?.putImageData(data, 0, 0);
+  }
+  return html`<canvas ${ref(callback)}></canvas
+    ><img src="${attachment.preview_url}" />`;
+  return html`<img src="${url}" /> `;
+  switch (attachment.type) {
+    case "gifv":
+    case "video":
+      return html`${attachment.description}<video
+          src="${attachment.url}"
+        ></video>`;
+    case "image":
+      // The information I found around the meta data is very spotty
+      if (
+        attachment.meta.original === undefined ||
+        attachment.meta.small === undefined
+      )
+        return html`${attachment.description}<img
+            src="${attachment.url}"
+            alt="${attachment.description}"
+          />`;
+
+      // Construct srcset attribute value string
+      // I assume the "small" in the meta data refers to the preview_url and the "original" to the url. I checked it but it might not be guaranteed.
+      const sourceSet = `${attachment.preview_url} ${attachment.meta.small.width}w, ${attachment.url} ${attachment.meta.original.width}w`;
+      return html`${attachment.description}<img
+          srcset="${sourceSet}"
+          alt="${attachment.description}"
+        />`;
+    case "audio":
+      return html`${attachment.description}<audio
+          src="${attachment.url}"
+        ></audio>`;
+    case "unknown":
+      return html`<a href="${attachment.url}" download
+        >Download "${attachment.description}"</a
+      >`;
+  }
+}
+
+function mediaAttachments(
+  attachments: MediaAttachment[]
+): TemplateResult | typeof nothing {
+  if (attachments.length === 0) return nothing;
+
+  return html`
+    <h2>${attachments.length} Attachments</h2>
+    ${repeat(attachments, (attachment) => attachment.id, mediaAttachment)}
+  `;
+}
+
 /**
  * Renders a status card
  */
@@ -285,6 +368,8 @@ function statusCard(status: Status): TemplateResult {
           >`
       : nothing}
     <p>${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}</p>
+
+    ${mediaAttachments(status.media_attachments)}
   </article>`;
 }
 class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {

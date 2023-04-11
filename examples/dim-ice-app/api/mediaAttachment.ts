@@ -1,5 +1,18 @@
-import { UrlString } from "./string";
+import { ResolutionString, UrlString } from "./string";
 
+type MetaData = {
+  width: number;
+  height: number;
+  size: ResolutionString;
+  aspect: number;
+};
+/**
+ * Type definition is taken from examples and experience. Could not find specific details about properties and when they appear
+ */
+type PaperclipMetadata = {
+  small?: MetaData;
+  original?: MetaData;
+};
 /**
  * The type of an attachment.
  */
@@ -62,7 +75,7 @@ type MediaAttachment = {
    * More importantly, there may be another topl-level focus Hash object on images as of 2.3.0, with coordinates can be
    * used for smart thumbnail cropping – see Focal points for cropped media thumbnails (https://docs.joinmastodon.org/api/guidelines/#focal-points) for more.
    */
-  meta: unknown;
+  meta: PaperclipMetadata;
 
   /**
    * Alternate text that describes what is in the media attachment, to be used for the visually impaired or when media

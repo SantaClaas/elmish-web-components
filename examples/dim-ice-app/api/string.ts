@@ -26,3 +26,9 @@ export type UnixTimestampString = string;
  * Represents a number that is actuallly a string but not guaranteed
  */
 export type NumberString = string;
+
+/**
+ * Represents a string that describes the width and size of something
+ * e.g. an image with the resolution of 1080x1080 pixel
+ */
+export type ResolutionString = `${number}x${number}`;
