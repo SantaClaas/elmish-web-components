@@ -214,10 +214,13 @@ function tryLoadAccessToken(): AccessTokenResponse | undefined {
   return JSON.parse(value);
 }
 
+/**
+ * Saves the access token to local storage
+ */
 function saveAccessToken(token: AccessTokenResponse) {
   //TODO better differentiate errrors
   // We don't have persistent storage in incognito windows
-  if (!("localStorage" in window)) return undefined;
+  if (!("localStorage" in window)) return;
 
   const value = JSON.stringify(token);
   localStorage.setItem(accessTokenStorageKey, value);
@@ -237,7 +240,7 @@ function formPossessive(name: string) {
  * Puts the account's avatar into a picture element that loads the static version of the avatar if reduced motion is
  * preferred by the user agent
  */
-function accountAvatar(account: Account) {
+function accountAvatar(account: Account): TemplateResult {
   // Easy accessibility win with picture element 😀
   // Turns out I wasn't the only one with this idea:
   // https://bradfrost.com/blog/post/reducing-motion-with-the-picture-element/
@@ -253,6 +256,34 @@ function accountAvatar(account: Account) {
 
     <img srcset="${account.avatar}" alt="${name} avatar" />
   </picture>`;
+}
+
+/**
+ * Renders a status card
+ */
+function statusCard(status: Status): TemplateResult {
+  const isRetoot = status.content === "" && status.reblog !== null;
+
+  //TODO can we trust the HTML provided by a mastodon instance to not inject JS causing a Cross Site
+  // Scripting attack (XSS)?
+  return html` <article>
+    ${accountAvatar(status.account)}
+    <span>${status.account.display_name}</span>
+    <time datetime="${status.created_at}"
+      >${new Date(status.created_at).toLocaleString()}</time
+    >
+    <p>Is Retoot: ${isRetoot ? "yes" : "no"}</p>
+
+    ${isRetoot
+      ? html` <p>Retotee:</p>
+          ${accountAvatar(status.reblog!.account)}
+          <span>${status.reblog?.account.display_name}</span>
+          <time datetime="${status.reblog?.created_at}"
+            >${new Date(status.reblog!.created_at).toLocaleString()}</time
+          >`
+      : nothing}
+    <p>${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}</p>
+  </article>`;
 }
 class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
   initialize(): [AppModel, Command<AppMessage>] {
@@ -436,41 +467,7 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
         console.debug(model.stati[0]);
         return html` <h1>Home Timeline</h1>
           <ul>
-            ${repeat(
-              model.stati,
-              (status) => status.id,
-              (status, index) => {
-                const isRetoot =
-                  status.content === "" && status.reblog !== null;
-
-                //TODO can we trust the HTML provided by a mastodon instance to not inject JS causing a Cross Site
-                // Scripting attack (XSS)?
-                return html` <article>
-                  ${accountAvatar(status.account)}
-                  <span>${status.account.display_name}</span>
-                  <time datetime="${status.created_at}"
-                    >${new Date(status.created_at).toLocaleString()}</time
-                  >
-                  <p>Is Retoot: ${isRetoot ? "yes" : "no"}</p>
-
-                  ${isRetoot
-                    ? html` <p>Retotee:</p>
-                        ${accountAvatar(status.reblog!.account)}
-                        <span>${status.reblog?.account.display_name}</span>
-                        <time datetime="${status.reblog?.created_at}"
-                          >${new Date(
-                            status.reblog!.created_at
-                          ).toLocaleString()}</time
-                        >`
-                    : nothing}
-                  <p>
-                    ${unsafeHTML(
-                      isRetoot ? status.reblog?.content : status.content
-                    )}
-                  </p>
-                </article>`;
-              }
-            )}
+            ${repeat(model.stati, (status) => status.id, statusCard)}
           </ul>`;
     }
   }
