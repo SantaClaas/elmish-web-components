@@ -1,3 +1,10 @@
-@import "open-props/style";
+/* @import "open-props/style";
 @import "open-props/normalize";
-@import "open-props/buttons";
+@import "open-props/buttons"; */
+
+/* the props */
+@import "open-props/postcss/style";
+
+/* optional imports that use the props */
+@import "open-props/postcss/normalize";
+@import "open-props/postcss/buttons";
