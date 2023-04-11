@@ -266,7 +266,9 @@ function statusCard(status: Status): TemplateResult {
 
   //TODO can we trust the HTML provided by a mastodon instance to not inject JS causing a Cross Site
   // Scripting attack (XSS)?
-  return html` <article>
+  return html` <article
+    lang="${status.language === null ? nothing : status.language}"
+  >
     ${accountAvatar(status.account)}
     <span>${status.account.display_name}</span>
     <time datetime="${status.created_at}"
