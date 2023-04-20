@@ -4,13 +4,13 @@ import { type Command, type Dispatch } from "../../src/elmish/command";
 import { TemplateResult, html, nothing } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
-import { ref } from "lit-html/directives/ref.js";
 import LitElmishComponent from "./elmishComponent";
 import Status from "./api/status";
 import Account from "./api/account";
 import MediaAttachment from "./api/mediaAttachment";
 import { decodeBlurHash } from "fast-blurhash";
-import { decode } from "blurhash";
+import { BlurHash } from "./api/string";
+import { generatePng } from "./pixelsToPng";
 
 // I know you don't include them in source code normallyn
 // Client credentials can be created on the fly
@@ -171,7 +171,7 @@ async function exchangeCodeForToken(
 
 // Returns the stati posted to the home timeline
 async function getHomeTimeline(instanceBaseUrl: URL, token: AccessToken) {
-  const url = new URL("/api/v1/timelines/home?limit=40", instanceBaseUrl);
+  const url = new URL("/api/v1/timelines/home", instanceBaseUrl);
 
   //TODO error handling
   const response = await fetch(url, {
@@ -258,43 +258,32 @@ function accountAvatar(account: Account): TemplateResult {
       media="(prefers-reduced-motion: reduce)"
     />
 
-    <img srcset="${account.avatar}" alt="${name} avatar" />
+    <img loading="lazy" srcset="${account.avatar}" alt="${name} avatar" />
   </picture>`;
+}
+
+function convertToPngObjectUrl(
+  blurHash: BlurHash,
+  width: number,
+  height: number
+): string {
+  const pixels = decodeBlurHash(blurHash, width, height);
+  const pngBytes = generatePng(width, height, pixels);
+  const pngBlob = new Blob([pngBytes], { type: "image/png" });
+  return URL.createObjectURL(pngBlob);
 }
 
 function mediaAttachment(
   attachment: MediaAttachment
 ): TemplateResult | typeof nothing {
-  console.debug(attachment.type);
-  //TODO move this to a pre processing step not into rendering
-  const pixels = decode(
+  //TODO enable download UI for unknown to allow users to view it if they have a compatible program
+  if (attachment.type == "unknown") return nothing;
+  const objectUrl = convertToPngObjectUrl(
     attachment.blurhash,
     attachment.meta.original?.width!,
     attachment.meta.original?.height!
   );
-  // new ImageBitmap().
-  const data = new ImageData(
-    pixels,
-    attachment.meta.original?.width!,
-    attachment.meta.original?.height!
-  );
 
-  const a = new Blob([data.data]);
-  btoa;
-  const url = URL.createObjectURL(a);
-  // createImageBitmap(data);
-  // URL.createObjectURL()
-  // createImageBitmap()
-  function callback(canvas?: Element) {
-    console.debug("🐘", canvas);
-
-    const c = canvas as HTMLCanvasElement;
-    const a = c.getContext("2d");
-    a?.putImageData(data, 0, 0);
-  }
-  return html`<canvas ${ref(callback)}></canvas
-    ><img src="${attachment.preview_url}" />`;
-  return html`<img src="${url}" /> `;
   switch (attachment.type) {
     case "gifv":
     case "video":
@@ -308,17 +297,29 @@ function mediaAttachment(
         attachment.meta.small === undefined
       )
         return html`${attachment.description}<img
+            loading="lazy"
             src="${attachment.url}"
             alt="${attachment.description}"
           />`;
 
       // Construct srcset attribute value string
       // I assume the "small" in the meta data refers to the preview_url and the "original" to the url. I checked it but it might not be guaranteed.
+      // I am doing the same with srcSet and source but not sure that is necessary
       const sourceSet = `${attachment.preview_url} ${attachment.meta.small.width}w, ${attachment.url} ${attachment.meta.original.width}w`;
-      return html`${attachment.description}<img
+      return html` <picture>
+        <source src="${attachment.preview_url}" />
+        <source
+          src="${attachment.url}"
+          media="min-width: ${attachment.meta.small.width}"
+          width="${attachment.meta.original.width}"
+        />
+        <img
+          loading="lazy"
+          src="${objectUrl}"
           srcset="${sourceSet}"
           alt="${attachment.description}"
-        />`;
+        />
+      </picture>`;
     case "audio":
       return html`${attachment.description}<audio
           src="${attachment.url}"

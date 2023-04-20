@@ -1,4 +1,5 @@
 import {
+  BlurHash,
   NumberString,
   UnixTimestampString,
   UnsafeHtmlString,
@@ -118,7 +119,7 @@ type PreviewCard = {
    * A hash computed by the BlurHash algorithm (https://github.com/woltapp/blurhash), for generating colorful preview
    * thumbnails when media has not been downloaded yet.
    */
-  blurhash: string | null;
+  blurhash: BlurHash | null;
 
   /**
    * Usage statistics for given days (typically the past week).

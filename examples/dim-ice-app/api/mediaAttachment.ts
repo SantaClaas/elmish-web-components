@@ -1,4 +1,4 @@
-import { ResolutionString, UrlString } from "./string";
+import { BlurHash, ResolutionString, UrlString } from "./string";
 
 type MetaData = {
   width: number;
@@ -87,7 +87,7 @@ type MediaAttachment = {
    * A hash computed by the BlurHash algorithm (https://github.com/woltapp/blurhash), for generating colorful preview thumbnails when media has not been
    * downloaded yet.
    */
-  blurhash: string;
+  blurhash: BlurHash;
 };
 
 export default MediaAttachment;

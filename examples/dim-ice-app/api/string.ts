@@ -32,3 +32,10 @@ export type NumberString = string;
  * e.g. an image with the resolution of 1080x1080 pixel
  */
 export type ResolutionString = `${number}x${number}`;
+
+/**
+ * A blurhash string can be used to create a very blured version of an image.
+ * This can be useful as preview or to hide sensitive/spoiler content
+ * See more at: https://blurha.sh
+ */
+export type BlurHash = string;

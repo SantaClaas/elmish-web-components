@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest --ui",
     "test:withgc": "node --expose-gc runTest.js",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "bench": "vitest bench"
   },
   "devDependencies": {
     "@vitest/ui": "^0.29.8",
@@ -21,7 +22,6 @@
     "vitest": "^0.29.7"
   },
   "dependencies": {
-    "blurhash": "^2.0.5",
     "fast-blurhash": "^1.1.2",
     "lit-html": "^2.7.1",
     "open-props": "^1.5.7"
