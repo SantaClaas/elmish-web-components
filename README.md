@@ -47,3 +47,9 @@ I wanted to know how elmish works under the hood
 ## A Note on Performance
 
 Performance is not my first concern but important. Much of the code I write is allocating new objects as I prefer immutability and I'll change it when required later when I have concrete measurements.
+
+## Roadmap 🛣️
+
+- Allow easy separation of styling and markup for components
+- Create new app after user wants to authorize with server for that server and persist credentials in storage
+- Implement easy routing
