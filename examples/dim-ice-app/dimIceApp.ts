@@ -4,7 +4,7 @@ import { type Command, type Dispatch } from "../../src/elmish/command";
 import { TemplateResult, html, nothing } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
-import LitElmishComponent from "./elmishComponent";
+import ProgramComponent from "./elmishComponent";
 import Status from "./api/status";
 import Account from "./api/account";
 import MediaAttachment from "./api/mediaAttachment";
@@ -276,8 +276,11 @@ function convertToPngObjectUrl(
 function mediaAttachment(
   attachment: MediaAttachment
 ): TemplateResult | typeof nothing {
-  //TODO enable download UI for unknown to allow users to view it if they have a compatible program
-  if (attachment.type == "unknown") return nothing;
+  if (attachment.type == "unknown")
+    return html`<a href="${attachment.url}" download
+      >Download "${attachment.description}"</a
+    >`;
+
   const objectUrl = convertToPngObjectUrl(
     attachment.blurhash,
     attachment.meta.original?.width!,
@@ -324,10 +327,6 @@ function mediaAttachment(
       return html`${attachment.description}<audio
           src="${attachment.url}"
         ></audio>`;
-    case "unknown":
-      return html`<a href="${attachment.url}" download
-        >Download "${attachment.description}"</a
-      >`;
   }
 }
 
@@ -373,7 +372,7 @@ function statusCard(status: Status): TemplateResult {
     ${mediaAttachments(status.media_attachments)}
   </article>`;
 }
-class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
+class DimIceApp extends ProgramComponent<AppModel, AppMessage> {
   initialize(): [AppModel, Command<AppMessage>] {
     // Default instance for now
     const defaultInstance = "mastodon.social";
@@ -553,7 +552,41 @@ class DimIceApp extends LitElmishComponent<AppModel, AppMessage> {
 
       case "homeTimeline":
         console.debug(model.stati[0]);
-        return html` <h1>Home Timeline</h1>
+        return html` <style>
+            /* Additional normalization */
+            ul {
+              padding-inline-start: 0;
+            }
+
+            /* Start of styling */
+
+            :host {
+              padding: var(--size-4);
+              /* IDK why the but this is required */
+              display: block;
+            }
+
+            article {
+              border-radius: var(--radius-3);
+              border: var(--border-size-2) solid var(--surface-3);
+              box-shadow: var(--shadow-1);
+              overflow: hidden;
+              padding: var(--size-4);
+              background: var(--surface-2);
+            }
+
+            ul {
+              display: flex;
+              flex-direction: column;
+              gap: var(--size-4);
+            }
+
+            img {
+              width: var(--size-10);
+              border-radius: var(--radius-round);
+            }
+          </style>
+          <h1>Home Timeline</h1>
           <ul>
             ${repeat(model.stati, (status) => status.id, statusCard)}
           </ul>`;

@@ -14,7 +14,7 @@ import {
 } from "../../src/elmish/subscription";
 
 // Not exactly elmish but more like lit-elmish as this relies on lit-html to render the view
-export default abstract class LitElmishComponent<
+export default abstract class ProgramComponent<
   TModel,
   TMessage
 > extends HTMLElement {
