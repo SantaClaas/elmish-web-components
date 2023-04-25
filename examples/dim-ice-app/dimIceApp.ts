@@ -4,7 +4,7 @@ import { type Command, type Dispatch } from "../../src/elmish/command";
 import { TemplateResult, html, nothing } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
-import ProgramComponent from "./elmishComponent";
+import ProgramComponent from "../../src/elmishComponent";
 import Status from "./api/status";
 import Account from "./api/account";
 import MediaAttachment from "./api/mediaAttachment";
@@ -292,6 +292,7 @@ function mediaAttachment(
     case "video":
       return html`${attachment.description}<video
           src="${attachment.url}"
+          controls
         ></video>`;
     case "image":
       // The information I found around the meta data is very spotty
@@ -341,17 +342,20 @@ function mediaAttachments(
   `;
 }
 
+function getLanguage(status: Status) {
+  if (status.content === "") return status.reblog?.language;
+
+  return status.language;
+}
 /**
  * Renders a status card
  */
 function statusCard(status: Status): TemplateResult {
   const isRetoot = status.content === "" && status.reblog !== null;
+  const languageCode = getLanguage(status);
 
-  //TODO can we trust the HTML provided by a mastodon instance to not inject JS causing a Cross Site
-  // Scripting attack (XSS)?
-  return html` <article
-    lang="${status.language === null ? nothing : status.language}"
-  >
+  // We assume HTML provided by Mastodon is safe against XSS
+  return html` <article lang="${languageCode ?? nothing}">
     ${accountAvatar(status.account)}
     <span>${status.account.display_name}</span>
     <time datetime="${status.created_at}"
@@ -551,7 +555,6 @@ class DimIceApp extends ProgramComponent<AppModel, AppMessage> {
         return html`<p>Loading toots...</p>`;
 
       case "homeTimeline":
-        console.debug(model.stati[0]);
         return html` <style>
             /* Additional normalization */
             ul {
@@ -562,7 +565,6 @@ class DimIceApp extends ProgramComponent<AppModel, AppMessage> {
 
             :host {
               padding: var(--size-4);
-              /* IDK why the but this is required */
               display: block;
             }
 
@@ -584,6 +586,11 @@ class DimIceApp extends ProgramComponent<AppModel, AppMessage> {
             img {
               width: var(--size-10);
               border-radius: var(--radius-round);
+            }
+
+            video {
+              width: 100%;
+              border-radius: var(--radius-2);
             }
           </style>
           <h1>Home Timeline</h1>

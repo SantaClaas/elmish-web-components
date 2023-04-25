@@ -1,17 +1,17 @@
 // The first attempt at an elmish base component
 
 import { TemplateResult, render } from "lit-html";
-import { type Command, type Dispatch } from "../../src/elmish/command";
-import command from "../../src/elmish/command";
-import { Termination } from "../../src/elmish/program";
-import { Queue } from "../../src/elmish/ring";
+import { type Command, type Dispatch } from "./elmish/command";
+import command from "./elmish/command";
+import { Termination } from "./elmish/program";
+import { Queue } from "./elmish/ring";
 import {
   ActiveSubscription,
   change,
   differentiate,
   NewSubscription,
   stopSubscriptions,
-} from "../../src/elmish/subscription";
+} from "./elmish/subscription";
 
 // Not exactly elmish but more like lit-elmish as this relies on lit-html to render the view
 export default abstract class ProgramComponent<
@@ -19,13 +19,27 @@ export default abstract class ProgramComponent<
   TMessage
 > extends HTMLElement {
   // ⏬ Elmish ⏬
-  abstract initialize(): [TModel, Command<TMessage>];
 
+  /**
+   * Gets called once at the start of the components lifecycle and can be overwritten to provide the
+   */
+  abstract initialize(): [TModel, Command<TMessage>];
+  /**
+   * The update function get's the current state encapsulated in the model and a message disptached from the view to update the model based on the message
+   * Or start commands for side effects
+   * @param message The message dispatched from the view to update model (or not, you don't have to)
+   * @param model The current state of the component
+   */
   abstract update(
     message: TMessage,
     model: TModel
   ): [TModel, Command<TMessage>];
 
+  /**
+   * Renders the current view based on the current state of the model
+   * @param model The current state to render the view with
+   * @param dispatch The dispatch function to send messages triggered by user interaction
+   */
   abstract view(model: TModel, dispatch: Dispatch<TMessage>): TemplateResult;
 
   /**
