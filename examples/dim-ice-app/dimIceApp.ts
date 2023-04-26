@@ -11,6 +11,7 @@ import MediaAttachment from "./api/mediaAttachment";
 import { decodeBlurHash } from "fast-blurhash";
 import { BlurHash } from "./api/string";
 import { generatePng } from "./pixelsToPng";
+import { css } from "./styling";
 
 // I know you don't include them in source code normallyn
 // Client credentials can be created on the fly
@@ -526,6 +527,45 @@ class DimIceApp extends ProgramComponent<AppModel, AppMessage> {
     }
   }
 
+  static styles = css`
+    /* Additional normalization */
+    ul {
+      padding-inline-start: 0;
+    }
+
+    /* Start of styling */
+
+    :host {
+      padding: var(--size-4);
+      display: block;
+    }
+
+    article {
+      border-radius: var(--radius-3);
+      border: var(--border-size-2) solid var(--surface-3);
+      box-shadow: var(--shadow-1);
+      overflow: hidden;
+      padding: var(--size-4);
+      background: var(--surface-2);
+    }
+
+    ul {
+      display: flex;
+      flex-direction: column;
+      gap: var(--size-4);
+    }
+
+    img {
+      width: var(--size-10);
+      border-radius: var(--radius-round);
+    }
+
+    video {
+      width: 100%;
+      border-radius: var(--radius-2);
+    }
+  `;
+
   view(model: AppModel, dispatch: Dispatch<AppMessage>): TemplateResult {
     // Thanks to union support in TypeScript the compiler can detect that these are the only valid cases and that we don't need to handle default
     switch (model.type) {
@@ -555,45 +595,7 @@ class DimIceApp extends ProgramComponent<AppModel, AppMessage> {
         return html`<p>Loading toots...</p>`;
 
       case "homeTimeline":
-        return html` <style>
-            /* Additional normalization */
-            ul {
-              padding-inline-start: 0;
-            }
-
-            /* Start of styling */
-
-            :host {
-              padding: var(--size-4);
-              display: block;
-            }
-
-            article {
-              border-radius: var(--radius-3);
-              border: var(--border-size-2) solid var(--surface-3);
-              box-shadow: var(--shadow-1);
-              overflow: hidden;
-              padding: var(--size-4);
-              background: var(--surface-2);
-            }
-
-            ul {
-              display: flex;
-              flex-direction: column;
-              gap: var(--size-4);
-            }
-
-            img {
-              width: var(--size-10);
-              border-radius: var(--radius-round);
-            }
-
-            video {
-              width: 100%;
-              border-radius: var(--radius-2);
-            }
-          </style>
-          <h1>Home Timeline</h1>
+        return html` <h1>Home Timeline</h1>
           <ul>
             ${repeat(model.stati, (status) => status.id, statusCard)}
           </ul>`;

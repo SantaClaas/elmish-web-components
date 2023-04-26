@@ -19,7 +19,6 @@ export default abstract class ProgramComponent<
   TMessage
 > extends HTMLElement {
   // ⏬ Elmish ⏬
-
   /**
    * Gets called once at the start of the components lifecycle and can be overwritten to provide the
    */
@@ -74,20 +73,29 @@ export default abstract class ProgramComponent<
     console.error(message, error);
   }
 
+  // ⏬ Styling ⏬
+  protected static styles: Promise<CSSStyleSheet>;
+
   // ⏬ Component lifecycle callbacks ⏬
   connectedCallback() {
     console.debug("Connected");
 
     // This part is to set up lit rendering
     const shadowRoot = this.attachShadow({ mode: "open" });
+
+    // Set styles as soon as styles are generated
+    (this.constructor as typeof ProgramComponent).styles?.then((sheet) =>
+      shadowRoot.adoptedStyleSheets.push(sheet)
+    );
+
+    // This is from the elmish program loop
+
     const setState = (model: TModel, dispatch: Dispatch<TMessage>) => {
       //TODO we should probably optimize rendering again based on old and new model
       const template = this.view(model, dispatch);
 
       render(template, shadowRoot);
     };
-
-    // This is from the elmish program loop
 
     // The program loop but inside the component
     // I might reconsider this and use program module which is called by this component
