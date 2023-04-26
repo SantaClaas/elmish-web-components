@@ -4,7 +4,6 @@ import { TemplateResult, render } from "lit-html";
 import { type Command, type Dispatch } from "./elmish/command";
 import command from "./elmish/command";
 import { Termination } from "./elmish/program";
-import { Queue } from "./elmish/ring";
 import {
   ActiveSubscription,
   change,
@@ -108,7 +107,7 @@ export default abstract class ProgramComponent<
     let currentState: TModel = model;
 
     // Messages need to be processes in the order they arrived (First In, First Out)
-    const messageQueue = new Queue<TMessage>();
+    const messageQueue: TMessage[] = [];
     // This flag is set while we process messages so we don't
     // start processing messages while already processing
     let isProcessingMessages = false;
@@ -116,7 +115,7 @@ export default abstract class ProgramComponent<
 
     // Defined as constant value to have "this" in scope
     const processMessages = () => {
-      let nextMessage = messageQueue.dequeue();
+      let nextMessage = messageQueue.shift();
 
       // Stop loop in case of termination
       while (!isTerminated && nextMessage !== undefined) {
@@ -162,7 +161,7 @@ export default abstract class ProgramComponent<
         );
 
         // Complete loop
-        nextMessage = messageQueue.dequeue();
+        nextMessage = messageQueue.shift();
       }
     };
 
@@ -174,7 +173,7 @@ export default abstract class ProgramComponent<
       if (isTerminated) return;
 
       // Enqueue messages to be processed
-      messageQueue.enqueue(message);
+      messageQueue.push(message);
       // Start processing if it hasn't started yet
       if (isProcessingMessages) return;
 

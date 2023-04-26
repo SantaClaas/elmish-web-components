@@ -18,6 +18,7 @@ type ReadWritable<TItem> = {
 
 type RingState<TItem> = Writable<TItem> | ReadWritable<TItem>;
 
+// There is a bug in the ring buffer so we just use a queue as it seems to have the same behavior
 export class RingBuffer<TItem> {
   #currentState: RingState<TItem>;
   constructor(size: number) {
@@ -118,26 +119,5 @@ export class RingBuffer<TItem> {
         return;
       }
     }
-  }
-}
-
-// There is a bug in the ring buffer
-export class Queue<T> {
-  #values: Array<T> = [];
-
-  dequeue() {
-    if (this.#values.length === 0) return undefined;
-
-    // First index is first element. Last index is last element.
-    const value = this.#values[0];
-
-    // Remove and reduce size
-    this.#values = this.#values.length === 1 ? [] : this.#values.slice(1);
-
-    return value;
-  }
-
-  enqueue(value: T) {
-    this.#values.push(value);
   }
 }
