@@ -26,7 +26,7 @@ I wanted to know how elmish works under the hood
 - Integrate navigation and router with subscriptions
   - when a navigation occurs, a subscription gets triggered and it is resolved client side
 - Integrate attribute change on component with subscriptions
-- Add cool looking console logging for tracer with often overlooked console APIs and console CSS styling
+- Add cool looking console logging for tracer with slick console APIs and console CSS styling
 - Learn and implement Web Accessibility https://www.w3.org/WAI/ARIA/apg/
 - Add documentation "how to do x" where x could be something like "routing" and it explains that route change is just a change to the app model
 - The awesome thing about elmish is that there are just a couple of base concepts and everything else fits into these concepts which makes understanding easier
@@ -50,6 +50,11 @@ Performance is not my first concern but important. Much of the code I write is a
 
 ## Roadmap 🛣️
 
-- Allow easy separation of styling and markup for components
+- Allow easy separation of styling and markup for components ✅
 - Create new app after user wants to authorize with server for that server and persist credentials in storage
-- Implement easy routing
+- Simplify route state management (Routing)
+
+## Backlog
+
+- Allow sharing styles between components
+  - This extends "Allow easy separation of styling and markup for components"
