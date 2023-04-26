@@ -2,15 +2,7 @@
 
 A Web App Component Framework built with Elmish on top of lit-html
 
-## Why not just use Fable and F#?
-
-I find F# to be the nicer language but TS is more practical and offers a lot of functional program functionality (hehe) too.
-
-## Why not just compile elmish to JS and import that
-
-I wanted to know how elmish works under the hood
-
-## Attribution
+## Attribution 👏
 
 - This library is using [Elmish](https://github.com/elmish/elmish). The code was copied and converted to TypeScript by me. Elmish is again based on the Model View Update architecture [made famouns by Elm](https://github.com/elmish/elmish#elmish-elm-like-abstractions-for-f-applications)
 
@@ -54,7 +46,24 @@ Performance is not my first concern but important. Much of the code I write is a
 - Create new app after user wants to authorize with server for that server and persist credentials in storage
 - Simplify route state management (Routing)
 
-## Backlog
+## Backlog 🔙🪵
 
 - Allow sharing styles between components
   - This extends "Allow easy separation of styling and markup for components"
+- Separate Dim Ice App and Elmish Web Components library
+  - Set up NPM package for library
+  - Use library in Dim Ice App through NPM
+    - Check if that doesn't create too much overhead
+    - Check if you can use local path for packages
+  - Set up GitHub Actions pipeline to automatically publish package
+- Set up GitHub Actions pipleline to automaticall publish Dim Ice App
+
+<br/>
+
+## Why not just use Fable and F#?
+
+I find F# to be the nicer language but TS is more practical and offers a lot of functional program functionality (hehe) too.
+
+## Why not just compile elmish to JS and import that
+
+I wanted to know how elmish works under the hood
