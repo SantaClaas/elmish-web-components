@@ -73,7 +73,10 @@ export default abstract class ProgramComponent<
   }
 
   // ⏬ Styling ⏬
-  protected static styles: Promise<CSSStyleSheet>;
+  /**
+   * Implementing components can use this to add styling to their markup
+   */
+  protected static styles?: Promise<CSSStyleSheet>;
 
   // ⏬ Component lifecycle callbacks ⏬
   connectedCallback() {
