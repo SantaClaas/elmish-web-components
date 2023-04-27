@@ -3,14 +3,9 @@ import command from "../../src/elmish/command";
 import { type Command, type Dispatch } from "../../src/elmish/command";
 import { TemplateResult, html, nothing } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
-import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
 import ProgramComponent from "../../src/elmishComponent";
 import Status from "./api/status";
-import Account from "./api/account";
-import MediaAttachment from "./api/mediaAttachment";
-import { decodeBlurHash } from "fast-blurhash";
-import { BlurHash } from "./api/string";
-import { generatePng } from "./pixelsToPng";
+import { statusCard } from "./components/statusCard";
 import { css } from "./styling";
 
 // I know you don't include them in source code normallyn
@@ -231,152 +226,6 @@ function saveAccessToken(token: AccessTokenResponse) {
   localStorage.setItem(accessTokenStorageKey, value);
 }
 
-/**
- * If the name does not end with 's' it appends and 's, else just a '
- * https://www.ef.com/wwen/english-resources/english-grammar/forming-possessive
- */
-function formPossessive(name: string) {
-  if (name.length === 0) return name;
-
-  return name[name.length - 1] === "s" ? name + "'" : name + "'s";
-}
-
-/**
- * Puts the account's avatar into a picture element that loads the static version of the avatar if reduced motion is
- * preferred by the user agent
- */
-function accountAvatar(account: Account): TemplateResult {
-  // Easy accessibility win with picture element 😀
-  // Turns out I wasn't the only one with this idea:
-  // https://bradfrost.com/blog/post/reducing-motion-with-the-picture-element/
-  const name = formPossessive(account.display_name);
-
-  // According to this: https://stackoverflow.com/a/48207973 the alterative (alt) text has to be placed on the img
-  // element
-  return html`<picture>
-    <source
-      srcset="${account.avatar_static}"
-      media="(prefers-reduced-motion: reduce)"
-    />
-
-    <img loading="lazy" srcset="${account.avatar}" alt="${name} avatar" />
-  </picture>`;
-}
-
-function convertToPngObjectUrl(
-  blurHash: BlurHash,
-  width: number,
-  height: number
-): string {
-  const pixels = decodeBlurHash(blurHash, width, height);
-  const pngBytes = generatePng(width, height, pixels);
-  const pngBlob = new Blob([pngBytes], { type: "image/png" });
-  return URL.createObjectURL(pngBlob);
-}
-
-function mediaAttachment(
-  attachment: MediaAttachment
-): TemplateResult | typeof nothing {
-  if (attachment.type == "unknown")
-    return html`<a href="${attachment.url}" download
-      >Download "${attachment.description}"</a
-    >`;
-
-  const objectUrl = convertToPngObjectUrl(
-    attachment.blurhash,
-    attachment.meta.original?.width!,
-    attachment.meta.original?.height!
-  );
-
-  switch (attachment.type) {
-    case "gifv":
-    case "video":
-      return html`${attachment.description}<video
-          src="${attachment.url}"
-          controls
-        ></video>`;
-    case "image":
-      // The information I found around the meta data is very spotty
-      if (
-        attachment.meta.original === undefined ||
-        attachment.meta.small === undefined
-      )
-        return html`${attachment.description}<img
-            loading="lazy"
-            src="${attachment.url}"
-            alt="${attachment.description}"
-          />`;
-
-      // Construct srcset attribute value string
-      // I assume the "small" in the meta data refers to the preview_url and the "original" to the url. I checked it but it might not be guaranteed.
-      // I am doing the same with srcSet and source but not sure that is necessary
-      const sourceSet = `${attachment.preview_url} ${attachment.meta.small.width}w, ${attachment.url} ${attachment.meta.original.width}w`;
-      return html` <picture>
-        <source src="${attachment.preview_url}" />
-        <source
-          src="${attachment.url}"
-          media="min-width: ${attachment.meta.small.width}"
-          width="${attachment.meta.original.width}"
-        />
-        <img
-          loading="lazy"
-          src="${objectUrl}"
-          srcset="${sourceSet}"
-          alt="${attachment.description}"
-        />
-      </picture>`;
-    case "audio":
-      return html`${attachment.description}<audio
-          src="${attachment.url}"
-        ></audio>`;
-  }
-}
-
-function mediaAttachments(
-  attachments: MediaAttachment[]
-): TemplateResult | typeof nothing {
-  if (attachments.length === 0) return nothing;
-
-  return html`
-    <h2>${attachments.length} Attachments</h2>
-    ${repeat(attachments, (attachment) => attachment.id, mediaAttachment)}
-  `;
-}
-
-function getLanguage(status: Status) {
-  if (status.content === "") return status.reblog?.language;
-
-  return status.language;
-}
-/**
- * Renders a status card
- */
-function statusCard(status: Status): TemplateResult {
-  const isRetoot = status.content === "" && status.reblog !== null;
-  const languageCode = getLanguage(status);
-
-  // We assume HTML provided by Mastodon is safe against XSS
-  return html` <article lang="${languageCode ?? nothing}">
-    ${accountAvatar(status.account)}
-    <span>${status.account.display_name}</span>
-    <time datetime="${status.created_at}"
-      >${new Date(status.created_at).toLocaleString()}</time
-    >
-    <p>Is Retoot: ${isRetoot ? "yes" : "no"}</p>
-
-    ${isRetoot
-      ? html` <p>Retotee:</p>
-          ${accountAvatar(status.reblog!.account)}
-          <span>${status.reblog?.account.display_name}</span>
-          <time datetime="${status.reblog?.created_at}"
-            >${new Date(status.reblog!.created_at).toLocaleString()}</time
-          >`
-      : nothing}
-    <p>${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}</p>
-
-    ${mediaAttachments(status.media_attachments)}
-  </article>`;
-}
 class DimIceApp extends ProgramComponent<AppModel, AppMessage> {
   initialize(): [AppModel, Command<AppMessage>] {
     // Default instance for now
