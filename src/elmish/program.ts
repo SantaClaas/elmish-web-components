@@ -1,7 +1,7 @@
 // Can't I import the types and consts separately with namespace and without? 🤔
-import { Command, execute, type Dispatch } from "./command";
+import { type Command, type Dispatch } from "./command";
+import command from "./command";
 import { HandleErrorFunction } from "./error";
-import { Queue } from "./ring";
 import {
   type None,
   none,
@@ -261,93 +261,109 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
   argument: TArgument,
   program: Program<TArgument, TModel, TMessage, TView>
 ) {
-  const [model, command] = program.initialize(argument);
-  const subscription = program.subscribe(model);
-  const [toTerminate, terminate] = program.termination;
-  // const ringBuffer = new RingBuffer<TMessage>(10);
-  // Ring/Circular buffer seems to be an optimization and it should behave like a queue
-  // So unitl I have fixed the bug in my implementation of it, I'll use a queue which is easier to understand 😅
-  // On the other hand I could just put more research in it to understand the ring buffer. Will do when out of Proof of Concept phase.
-  const messageQueue = new Queue<TMessage>();
-  let isReentered = false;
-  let state = model;
+  // The program loop but inside the component
+  // I might reconsider this and use program module which is called by this component
+  // This is a lot of state, I could consider going more in the object oriented way
+  // and make a class that contains this
+  const [model, initialCommand] = program.initialize(argument);
+  const initialSubscription = program.subscribe(model);
+  const [isTerminationRequested, terminate] = program.termination;
   let activeSubscriptions: ActiveSubscription[] = [];
+  let currentState: TModel = model;
+
+  // Messages need to be processes in the order they arrived (First In, First Out)
+  const messageQueue: TMessage[] = [];
+  // This flag is set while we process messages so we don't
+  // start processing messages while already processing
+  let isProcessingMessages = false;
   let isTerminated = false;
 
-  // How good is JS with recursion? Or should I make this into a loop?
+  // Defined as constant value to have "this" in scope
+  const processMessages = () => {
+    let nextMessage = messageQueue.shift();
+
+    // Stop loop in case of termination
+    while (!isTerminated && nextMessage !== undefined) {
+      if (isTerminationRequested(nextMessage)) {
+        stopSubscriptions(program.onError, activeSubscriptions);
+        terminate(currentState);
+        // Break out of processing
+        return;
+      }
+
+      // The update loop. It might add new messages to the message queue
+      // when the dispatch callback is invoked.
+      // We hand it the first message that is waiting in queue
+      const [newState, newCommand] = program.update(nextMessage, currentState);
+      // Next we give the component the chance to start subscriptions based on the new state
+      // Subscriptions have an id to avoid starting them again
+      const subscriptions = program.subscribe(newState);
+      // Inside the setState function the program or component can call the view function to render the UI
+      program.setState(newState, dispatch);
+
+      // Execute commands
+      command.execute(
+        (error) =>
+          program.onError(`Error handling the message: ${nextMessage}`, error),
+        dispatch,
+        newCommand
+      );
+
+      // Completed run, set new to current
+      currentState = newState;
+
+      // Find subscriptions that need to be started and which ones need to be stopped
+      const difference = differentiate<TMessage>(
+        activeSubscriptions,
+        subscriptions
+      );
+
+      // Stops no longer active subscriptions and starts not started ones
+      activeSubscriptions = change<TMessage>(
+        program.onError,
+        dispatch,
+        difference
+      );
+
+      // Complete loop
+      nextMessage = messageQueue.shift();
+    }
+  };
+
+  // The dispatch function is how we hook into the loop
+  // and provide users a way to update the state
+  // to start processing messages if there are new one as long as we are not terminated
   function dispatch(message: TMessage) {
+    // Break loop
     if (isTerminated) return;
 
-    // ringBuffer.push(message);
-    messageQueue.enqueue(message);
-    if (isReentered) return;
+    // Enqueue messages to be processed
+    messageQueue.push(message);
+    // Start processing if it hasn't started yet
+    if (isProcessingMessages) return;
 
-    isReentered = true;
+    isProcessingMessages = true;
     processMessages();
-    isReentered = false;
+    isProcessingMessages = false;
   }
 
-  function processMessages() {
-    // let nextMessage = ringBuffer.pop();
-    let nextMessage = messageQueue.dequeue();
-    while (!isTerminated && nextMessage) {
-      // Is there a possibility to terminate multiple times?
-      if (toTerminate(nextMessage)) {
-        stopSubscriptions(program.onError, activeSubscriptions);
-        terminate(state);
-        isTerminated = true;
-      } else {
-        const [newState, command] = program.update(nextMessage, state);
-        const subscriptions = program.subscribe(newState);
-        program.setState(newState, dispatch);
-        execute(
-          (error) =>
-            program.onError(
-              `Error handling the message: ${nextMessage}`,
-              error
-            ),
-          dispatch,
-          command
-        );
-
-        state = newState;
-        // Doing a step in between compared to original because we don't have the pipe operator
-        const differentiationState = differentiate<TMessage>(
-          activeSubscriptions,
-          subscriptions
-        );
-
-        activeSubscriptions = change<TMessage>(
-          program.onError,
-          dispatch,
-          differentiationState
-        );
-
-        // nextMessage = ringBuffer.pop();
-        nextMessage = messageQueue.dequeue();
-      }
-    }
-  }
-
-  isReentered = true;
+  // First start of loop
+  isProcessingMessages = true;
   program.setState(model, dispatch);
-  execute(
-    (error) => program.onError(`Error initializing command: ${command}`, error),
+  command.execute(
+    (error) => program.onError(`Error initialzing`, error),
     dispatch,
-    command
+    initialCommand
   );
-  // Step inbetween becasue no pipe operator
-  const differentiationResult = differentiate<TMessage>(
+
+  const difference = differentiate<TMessage>(
     activeSubscriptions,
-    subscription
+    initialSubscription
   );
-  activeSubscriptions = change(
-    program.onError,
-    dispatch,
-    differentiationResult
-  );
+
+  activeSubscriptions = change(program.onError, dispatch, difference);
   processMessages();
-  isReentered = false;
+  isProcessingMessages = false;
 }
 
 export function runWith<TArgument, TModel, TMessage, TView>(
