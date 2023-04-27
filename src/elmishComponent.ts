@@ -3,7 +3,7 @@
 import { TemplateResult, render } from "lit-html";
 import { type Command, type Dispatch } from "./elmish/command";
 import command from "./elmish/command";
-import { Termination } from "./elmish/program";
+import { Termination, makeProgram, run } from "./elmish/program";
 import {
   ActiveSubscription,
   change,
@@ -104,109 +104,9 @@ export default abstract class ProgramComponent<
       render(template, shadowRoot);
     };
 
-    // The program loop but inside the component
-    // I might reconsider this and use program module which is called by this component
-    // This is a lot of state, I could consider going more in the object oriented way
-    // and make a class that contains this
-    const [model, initialCommand] = this.initialize();
-    const initialSubscription = this.subscribe(model);
-    const [isTerminationRequested, terminate] = this.termination;
-    let activeSubscriptions: ActiveSubscription[] = [];
-    let currentState: TModel = model;
+    const program = makeProgram(this.initialize, this.update, setState);
 
-    // Messages need to be processes in the order they arrived (First In, First Out)
-    const messageQueue: TMessage[] = [];
-    // This flag is set while we process messages so we don't
-    // start processing messages while already processing
-    let isProcessingMessages = false;
-    let isTerminated = false;
-
-    // Defined as constant value to have "this" in scope
-    const processMessages = () => {
-      let nextMessage = messageQueue.shift();
-
-      // Stop loop in case of termination
-      while (!isTerminated && nextMessage !== undefined) {
-        if (isTerminationRequested(nextMessage)) {
-          stopSubscriptions(this.onError, activeSubscriptions);
-          terminate(currentState);
-          // Break out of processing
-          return;
-        }
-
-        // The update loop. It might add new messages to the message queue
-        // when the dispatch callback is invoked.
-        // We hand it the first message that is waiting in queue
-        const [newState, newCommand] = this.update(nextMessage, currentState);
-        // Next we give the component the chance to start subscriptions based on the new state
-        // Subscriptions have an id to avoid starting them again
-        const subscriptions = this.subscribe(newState);
-        // Inside the setState function the program or component can call the view function to render the UI
-        setState(newState, dispatch);
-
-        // Execute commands
-        command.execute(
-          (error) =>
-            this.onError(`Error handling the message: ${nextMessage}`, error),
-          dispatch,
-          newCommand
-        );
-
-        // Completed run, set new to current
-        currentState = newState;
-
-        // Find subscriptions that need to be started and which ones need to be stopped
-        const difference = differentiate<TMessage>(
-          activeSubscriptions,
-          subscriptions
-        );
-
-        // Stops no longer active subscriptions and starts not started ones
-        activeSubscriptions = change<TMessage>(
-          this.onError,
-          dispatch,
-          difference
-        );
-
-        // Complete loop
-        nextMessage = messageQueue.shift();
-      }
-    };
-
-    // The dispatch function is how we hook into the loop
-    // and provide users a way to update the state
-    // to start processing messages if there are new one as long as we are not terminated
-    function dispatch(message: TMessage) {
-      // Break loop
-      if (isTerminated) return;
-
-      // Enqueue messages to be processed
-      messageQueue.push(message);
-      // Start processing if it hasn't started yet
-      if (isProcessingMessages) return;
-
-      isProcessingMessages = true;
-      processMessages();
-      isProcessingMessages = false;
-    }
-
-    // First start of loop
-    isProcessingMessages = true;
-    setState(model, dispatch);
-    command.execute(
-      (error) => this.onError(`Error initialzing`, error),
-      dispatch,
-      initialCommand
-    );
-
-    const difference = differentiate<TMessage>(
-      activeSubscriptions,
-      initialSubscription
-    );
-
-    activeSubscriptions = change(this.onError, dispatch, difference);
-    processMessages();
-    isProcessingMessages = false;
+    run(program);
   }
 
   disconnectedCallback() {

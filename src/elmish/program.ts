@@ -261,10 +261,6 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
   argument: TArgument,
   program: Program<TArgument, TModel, TMessage, TView>
 ) {
-  // The program loop but inside the component
-  // I might reconsider this and use program module which is called by this component
-  // This is a lot of state, I could consider going more in the object oriented way
-  // and make a class that contains this
   const [model, initialCommand] = program.initialize(argument);
   const initialSubscription = program.subscribe(model);
   const [isTerminationRequested, terminate] = program.termination;
@@ -373,7 +369,7 @@ export function runWith<TArgument, TModel, TMessage, TView>(
   runWithDispatch(argument, program);
 }
 
-function run<TModel, TMessage, TView>(
+export function run<TModel, TMessage, TView>(
   program: Program<null, TModel, TMessage, TView>
 ) {
   runWith(null, program);
