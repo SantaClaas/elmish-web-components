@@ -87,15 +87,12 @@ export default abstract class ProgramComponent<
   connectedCallback() {
     console.debug("Connected");
 
-    // This part is to set up lit rendering
     const shadowRoot = this.attachShadow({ mode: "open" });
 
     // Set styles as soon as styles are generated
     (this.constructor as typeof ProgramComponent).styles?.then((sheet) =>
       shadowRoot.adoptedStyleSheets.push(sheet)
     );
-
-    // This is from the elmish program loop
 
     const setState = (model: TModel, dispatch: Dispatch<TMessage>) => {
       //TODO we should probably optimize rendering again based on old and new model
@@ -104,6 +101,7 @@ export default abstract class ProgramComponent<
       render(template, shadowRoot);
     };
 
+    // This is from the elmish program loop
     const program = makeProgram(this.initialize, this.update, setState);
 
     run(program);

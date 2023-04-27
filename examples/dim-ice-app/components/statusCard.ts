@@ -3,6 +3,9 @@ import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
 import Status from "../api/status";
 import { accountAvatar } from "./avatar";
 import { mediaAttachments } from "./mediaAttachment";
+import ProgramComponent from "../../../src/elmishComponent";
+import { type Command, type Dispatch } from "../../../src/elmish/command";
+import command from "../../../src/elmish/command";
 
 function getLanguage(status: Status) {
   if (status.content === "") return status.reblog?.language;
@@ -37,4 +40,13 @@ export function statusCard(status: Status): TemplateResult {
 
     ${mediaAttachments(status.media_attachments)}
   </article>`;
+}
+
+class StatusCard extends ProgramComponent<Status | null, undefined> {
+  initialize(): [Status | null, Command<undefined>] {
+    return [null, command.none];
+  }
+  protected view(model: Status, dispatch: Dispatch<undefined>): TemplateResult {
+    throw new Error("Method not implemented.");
+  }
 }
