@@ -28,17 +28,22 @@ export default abstract class ProgramComponent<
    * @param message The message dispatched from the view to update model (or not, you don't have to)
    * @param model The current state of the component
    */
-  abstract update(
+  protected update(
     message: TMessage,
     model: TModel
-  ): [TModel, Command<TMessage>];
+  ): [TModel, Command<TMessage>] {
+    return [model, command.none];
+  }
 
   /**
    * Renders the current view based on the current state of the model
    * @param model The current state to render the view with
    * @param dispatch The dispatch function to send messages triggered by user interaction
    */
-  abstract view(model: TModel, dispatch: Dispatch<TMessage>): TemplateResult;
+  protected abstract view(
+    model: TModel,
+    dispatch: Dispatch<TMessage>
+  ): TemplateResult;
 
   /**
    * Implementing classes can overwrite this method
@@ -50,7 +55,7 @@ export default abstract class ProgramComponent<
    * the same id will not be started again.
    * Subscriptions that were returned at one point but weren't at the next point will be stopped.
    */
-  subscribe(_: TModel): NewSubscription<TMessage>[] {
+  protected subscribe(_: TModel): NewSubscription<TMessage>[] {
     return [];
   }
 
@@ -67,7 +72,7 @@ export default abstract class ProgramComponent<
 
   // Error handling callback
   //TODO this is copied from program which has a callback defined but there might be a better approach
-  onError(message: string, error: unknown) {
+  protected onError(message: string, error: unknown) {
     //TODO Figure out something better 😬
     console.error(message, error);
   }
