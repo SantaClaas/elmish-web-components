@@ -222,7 +222,7 @@ function tryStart<TMessage>(
   try {
     return { id, stop: start(dispatch) };
   } catch (error) {
-    onError(`Error starting subscription: ${toString(id)}`, error);
+    onError(`Error starting subscription with id: "${toString(id)}"`, error);
     return false;
   }
 }
