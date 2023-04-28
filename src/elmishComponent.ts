@@ -3,7 +3,7 @@
 import { TemplateResult, render } from "lit-html";
 import { type Command, type Dispatch } from "./elmish/command";
 import command from "./elmish/command";
-import { Termination, makeProgram, run } from "./elmish/program";
+import { Program, Termination, makeProgram, run } from "./elmish/program";
 import {
   ActiveSubscription,
   change,
@@ -55,7 +55,7 @@ export default abstract class ProgramComponent<
    * the same id will not be started again.
    * Subscriptions that were returned at one point but weren't at the next point will be stopped.
    */
-  protected subscribe(_: TModel): NewSubscription<TMessage>[] {
+  protected subscribe(model: TModel): NewSubscription<TMessage>[] {
     return [];
   }
 
@@ -76,6 +76,8 @@ export default abstract class ProgramComponent<
     //TODO Figure out something better 😬
     console.error(message, error);
   }
+
+  // ⏬ Properties ⏬
 
   // ⏬ Styling ⏬
   /**
@@ -101,10 +103,19 @@ export default abstract class ProgramComponent<
       render(template, shadowRoot);
     };
 
+    const program2: Program<unknown, TModel, TMessage, TemplateResult> = {
+      initialize: this.initialize,
+      update: this.update,
+      view: this.view,
+      setState,
+      subscribe: this.subscribe,
+      onError: this.onError,
+      termination: [(_) => false, () => {}],
+    };
     // This is from the elmish program loop
-    const program = makeProgram(this.initialize, this.update, setState);
+    // const program = makeProgram(this.initialize, this.update, setState);
 
-    run(program);
+    run(program2);
   }
 
   disconnectedCallback() {

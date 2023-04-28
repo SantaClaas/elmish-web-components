@@ -51,7 +51,7 @@ type SetStateFunction<TModel, TMessage> = (
   dispatch: Dispatch<TMessage>
 ) => void;
 
-type Program<TArgument, TModel, TMessage, TView> = {
+export type Program<TArgument, TModel, TMessage, TView> = {
   // Initializes the initial state of the application and starts side effects
   readonly initialize: InitializeFunction<TArgument, TModel, TMessage>;
   // Is called when a message is dispatched

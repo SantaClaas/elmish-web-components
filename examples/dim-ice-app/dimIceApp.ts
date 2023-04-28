@@ -5,7 +5,7 @@ import { TemplateResult, html, nothing } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import ProgramComponent from "../../src/elmishComponent";
 import Status from "./api/status";
-import { statusCard } from "./components/statusCard";
+import { StatusCard, statusCard } from "./components/statusCard";
 import { css } from "./styling";
 
 // I know you don't include them in source code normallyn
@@ -446,10 +446,18 @@ class DimIceApp extends ProgramComponent<AppModel, AppMessage> {
       case "homeTimeline":
         return html` <h1>Home Timeline</h1>
           <ul>
-            ${repeat(model.stati, (status) => status.id, statusCard)}
+            ${repeat(
+              model.stati,
+              (status) => status.id,
+              (status) =>
+                html`<dim-ice-status-card
+                  .status=${status}
+                ></dim-ice-status-card>`
+            )}
           </ul>`;
     }
   }
 }
 
+customElements.define("dim-ice-status-card", StatusCard);
 customElements.define("dim-ice-app", DimIceApp);
