@@ -86,8 +86,9 @@ export default abstract class ProgramComponent<
   protected static styles?: Promise<CSSStyleSheet>;
 
   // ⏬ Component lifecycle callbacks ⏬
-  connectedCallback() {
-    console.debug("Connected");
+
+  constructor() {
+    super();
 
     const shadowRoot = this.attachShadow({ mode: "open" });
 
@@ -103,7 +104,7 @@ export default abstract class ProgramComponent<
       render(template, shadowRoot);
     };
 
-    const program2: Program<unknown, TModel, TMessage, TemplateResult> = {
+    const program: Program<unknown, TModel, TMessage, TemplateResult> = {
       initialize: this.initialize,
       update: this.update,
       view: this.view,
@@ -113,9 +114,13 @@ export default abstract class ProgramComponent<
       termination: [(_) => false, () => {}],
     };
     // This is from the elmish program loop
-    // const program = makeProgram(this.initialize, this.update, setState);
 
-    run(program2);
+    //TODO move this out of constructor to run only on connected
+    run(program);
+  }
+  // Attributes defined in the DOM are not available in the constructor and only at connected time
+  connectedCallback() {
+    console.debug("Connected");
   }
 
   disconnectedCallback() {

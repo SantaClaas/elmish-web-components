@@ -11,6 +11,7 @@ import {
   StopFunction,
   Subscription,
 } from "../../../src/elmish/subscription";
+import { css } from "../styling";
 
 function getLanguage(status: Status) {
   if (status.content === "") return status.reblog?.language;
@@ -69,11 +70,14 @@ export class StatusCard extends ProgramComponent<
   Status | null,
   StatusCardMessage
 > {
+  protected static styles?: Promise<CSSStyleSheet> = css``;
   constructor() {
     super();
     console.debug("Constructed");
   }
   // Subscription based approach
+
+  // Set up program loop before connected callback
 
   protected override subscribe(
     model: Status | null
@@ -104,7 +108,7 @@ export class StatusCard extends ProgramComponent<
   set status(status: Status) {
     // Dispatch message that status changed
     const dispatch = propertySubscriptions.get(subscription);
-    console.debug("Set status", { dispatch });
+    console.debug("Set status", { dispatch, status });
     dispatch?.({ type: "set status", status });
   }
 
@@ -123,16 +127,12 @@ export class StatusCard extends ProgramComponent<
     return [null, command.none];
   }
 
-  //   static get observedAttributes(){
-
-  //   }
-
   protected view(
     status: Status | null,
     dispatch: Dispatch<StatusCardMessage>
   ): TemplateResult {
+    console.debug("View", { status });
     if (status === null) {
-      console.debug("Status null meh");
       return html`<p>No Status</p>`;
     }
 
