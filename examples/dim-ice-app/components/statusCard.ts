@@ -9,7 +9,6 @@ import command from "../../../src/elmish/command";
 import {
   NewSubscription,
   StopFunction,
-  Subscription,
 } from "../../../src/elmish/subscription";
 import { css } from "../styling";
 

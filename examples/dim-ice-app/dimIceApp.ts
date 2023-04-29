@@ -397,16 +397,6 @@ class DimIceApp extends ProgramComponent<AppModel, AppMessage> {
       flex-direction: column;
       gap: var(--size-4);
     }
-
-    img {
-      width: var(--size-10);
-      border-radius: var(--radius-round);
-    }
-
-    video {
-      width: 100%;
-      border-radius: var(--radius-2);
-    }
   `;
 
   view(model: AppModel, dispatch: Dispatch<AppMessage>): TemplateResult {
