@@ -386,16 +386,10 @@ class DimIceApp extends ProgramComponent<AppModel, AppMessage> {
 
     :host {
       padding: var(--size-4);
+      /* Default display does not seem to be block and causes content to overflow and display normally.
+         But padding and other styles only apply to a small rectangle
+       */
       display: block;
-    }
-
-    article {
-      border-radius: var(--radius-3);
-      border: var(--border-size-2) solid var(--surface-3);
-      box-shadow: var(--shadow-1);
-      overflow: hidden;
-      padding: var(--size-4);
-      background: var(--surface-2);
     }
 
     ul {

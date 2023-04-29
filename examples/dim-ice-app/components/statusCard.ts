@@ -70,7 +70,26 @@ export class StatusCard extends ProgramComponent<
   Status | null,
   StatusCardMessage
 > {
-  protected static styles?: Promise<CSSStyleSheet> = css``;
+  protected static styles?: Promise<CSSStyleSheet> = css`
+    article {
+      border-radius: var(--radius-3);
+      border: var(--border-size-2) solid var(--surface-3);
+      box-shadow: var(--shadow-1);
+      overflow: hidden;
+      padding: var(--size-4);
+      background: var(--surface-2);
+    }
+
+    img {
+      width: var(--size-10);
+      border-radius: var(--radius-round);
+    }
+
+    video {
+      width: 100%;
+      border-radius: var(--radius-2);
+    }
+  `;
   constructor() {
     super();
     console.debug("Constructed");
