@@ -345,6 +345,7 @@ function runWithDispatch<TArgument, TModel, TMessage, TView>(
 
   // First start of loop
   isProcessingMessages = true;
+  // Set state normally triggers the first render here
   program.setState(model, dispatch);
   command.execute(
     (error) => program.onError(`Error initialzing`, error),
