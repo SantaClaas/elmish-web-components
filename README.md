@@ -59,6 +59,7 @@ Performance is not my first concern but important. Much of the code I write is a
     - Check if you can use local path for packages
   - Set up GitHub Actions pipeline to automatically publish package
 - Set up GitHub Actions pipleline to automaticall publish Dim Ice App
+- Set up code workspace with recommended settings and extensions
 
 <br/>
 

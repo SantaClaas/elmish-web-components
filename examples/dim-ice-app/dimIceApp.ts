@@ -3,7 +3,7 @@ import command from "../../src/elmish/command";
 import { type Command, type Dispatch } from "../../src/elmish/command";
 import { TemplateResult, html, nothing } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
-import ProgramComponent from "../../src/elmishComponent";
+import ElmishElement from "../../src/elmishComponent";
 import Status from "./api/status";
 import { StatusCard, statusCard } from "./components/statusCard";
 import { css } from "./styling";
@@ -226,7 +226,7 @@ function saveAccessToken(token: AccessTokenResponse) {
   localStorage.setItem(accessTokenStorageKey, value);
 }
 
-class DimIceApp extends ProgramComponent<AppModel, AppMessage> {
+class DimIceApp extends ElmishElement<AppModel, AppMessage> {
   initialize(): [AppModel, Command<AppMessage>] {
     // Default instance for now
     const defaultInstance = "mastodon.social";

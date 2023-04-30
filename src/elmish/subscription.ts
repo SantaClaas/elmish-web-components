@@ -197,6 +197,7 @@ function choose<TValue, TResult>(
 
   return results;
 }
+
 export function change<TMessage>(
   onError: HandleErrorFunction,
   dispatch: Dispatch<TMessage>,

@@ -3,7 +3,7 @@
 import { TemplateResult, render } from "lit-html";
 import { type Command, type Dispatch } from "./elmish/command";
 import command from "./elmish/command";
-import { Program, Termination, makeProgram, run } from "./elmish/program";
+import { Termination } from "./elmish/program";
 import {
   ActiveSubscription,
   change,
@@ -13,7 +13,8 @@ import {
 } from "./elmish/subscription";
 
 // Not exactly elmish but more like lit-elmish as this relies on lit-html to render the view
-export default abstract class ProgramComponent<
+//TODO try splitting the program loop things into a mixin class
+export default abstract class ElmishElement<
   TModel,
   TMessage
 > extends HTMLElement {
@@ -22,6 +23,7 @@ export default abstract class ProgramComponent<
    * Gets called once at the start of the components lifecycle and can be overwritten to provide the
    */
   abstract initialize(): [TModel, Command<TMessage>];
+
   /**
    * The update function get's the current state encapsulated in the model and a message disptached from the view to update the model based on the message
    * Or start commands for side effects
@@ -49,11 +51,11 @@ export default abstract class ProgramComponent<
    * Implementing classes can overwrite this method
    * to start subscription to external state changes
    * based on the current state.
-   * This is called after the update method was invoked
+   * This is called with each new model to allow users to start subscriptions based on the current state. Subscriptions
+   * that are not included but previously were will be stopped.
    * and generated a new model
    * Subscriptions provide an id and subscriptions with
    * the same id will not be started again.
-   * Subscriptions that were returned at one point but weren't at the next point will be stopped.
    */
   protected subscribe(model: TModel): NewSubscription<TMessage>[] {
     return [];
@@ -77,6 +79,100 @@ export default abstract class ProgramComponent<
     console.error(message, error);
   }
 
+  #shadowRoot: ShadowRoot;
+  #setState(model: TModel, dispatch: Dispatch<TMessage>) {
+    //TODO we should probably optimize rendering again based on old and new model
+    // Don't render as long as not connected
+    if (!this.isConnected) return;
+
+    const template = this.view(model, dispatch);
+
+    render(template, this.#shadowRoot);
+  }
+
+  #messageQueue: TMessage[] = [];
+  /**
+   * Represents the current state that gets changed constantly
+   */
+  #currentModel: TModel;
+  #activeSubscriptions: ActiveSubscription[] = [];
+  #isTerminated;
+  #isProcessingMessages = false;
+
+  // The dispatch function is how we hook into the loop
+  // and provide users a way to update the state
+  // to start processing messages if there are new one as long as we are not terminated
+  // protected dispatch(message: TMessage) {
+  //   console.debug("Dispatched with", {
+  //     message,
+  //   });
+  //   // Break loop
+  //   if (this.#isTerminated) return;
+
+  //   // Enqueue messages to be processed
+  //   this.#messageQueue.push(message);
+  //   // Start processing if it hasn't started yet
+  //   if (this.#isProcessingMessages && this.isConnected) return;
+
+  //   this.#isProcessingMessages = true;
+  //   this.#processMessages();
+  //   this.#isProcessingMessages = false;
+  // }
+
+  #processMessages() {
+    let nextMessage = this.#messageQueue.shift();
+    const [isTerminationRequested, terminate] = this.termination;
+    while (!this.#isTerminated && nextMessage !== undefined) {
+      if (isTerminationRequested(nextMessage)) {
+        stopSubscriptions(this.onError, this.#activeSubscriptions);
+        terminate(this.#currentModel);
+        // Break out of processing
+        break;
+      }
+
+      // The update loop. It might add new messages to the message queue
+      // when the dispatch callback is invoked.
+      // We hand it the first message that is waiting in queue
+      const [newState, newCommands] = this.update(
+        nextMessage,
+        this.#currentModel
+      );
+      // Next we give the component the chance to start subscriptions based on the new state
+      // Subscriptions have an id to avoid starting them again
+      const subscriptions = this.subscribe(newState);
+      // Inside the setState function the program or component can call the view function to render the UI
+      this.#setState(newState, this.dispatch);
+
+      // Execute commands
+      command.execute(
+        (error) =>
+          this.onError(`Error handling the message: ${nextMessage}`, error),
+        this.dispatch,
+        newCommands
+      );
+
+      // Completed run, set new to current
+      this.#currentModel = newState;
+
+      // Find subscriptions that need to be started and which ones need to be stopped
+      const difference = differentiate<TMessage>(
+        this.#activeSubscriptions,
+        subscriptions
+      );
+
+      // Stops no longer active subscriptions and starts not started ones
+      //TODO should dispatch be temporarily go to a buffer to allow setting properties or should view just not be called
+      this.#activeSubscriptions = change<TMessage>(
+        this.onError,
+        this.dispatch,
+        difference
+      );
+
+      // Complete loop
+      nextMessage = this.#messageQueue.shift();
+    }
+  }
+
   // ⏬ Properties ⏬
 
   // ⏬ Styling ⏬
@@ -85,42 +181,80 @@ export default abstract class ProgramComponent<
    */
   protected static styles?: Promise<CSSStyleSheet>;
 
+  // Defined as property because function is called in constructor through command execute starting side effects and it
+  // would have the fields as undefined if this would be a method
+  /**
+   * The dispatch function is how we hook into the loop and provide users a way to update the state to start processing
+   * messages if there are new one as long as we are not terminated
+   * @param message
+   * @returns
+   */
+  protected dispatch: Dispatch<TMessage> = (message: TMessage) => {
+    console.debug("Dispatched with", {
+      message,
+    });
+    // Break loop
+    if (this.#isTerminated) return;
+
+    // Enqueue messages to be processed
+    this.#messageQueue.push(message);
+    // Start processing if it hasn't started yet
+    if (this.#isProcessingMessages && this.isConnected) return;
+
+    this.#isProcessingMessages = true;
+    this.#processMessages();
+    this.#isProcessingMessages = false;
+  };
   // ⏬ Component lifecycle callbacks ⏬
 
   constructor() {
     super();
 
-    const shadowRoot = this.attachShadow({ mode: "open" });
-
-    // Set styles as soon as styles are generated
-    (this.constructor as typeof ProgramComponent).styles?.then((sheet) =>
-      shadowRoot.adoptedStyleSheets.push(sheet)
+    this.#isTerminated = false;
+    const [initialModal, initialCommands] = this.initialize();
+    this.#currentModel = initialModal;
+    const initialSubscriptions = this.subscribe(this.#currentModel);
+    console.debug("Commands to execute", { initialCommands });
+    command.execute(
+      (error) => this.onError(`Error initialzing`, error),
+      this.dispatch,
+      initialCommands
     );
 
-    const setState = (model: TModel, dispatch: Dispatch<TMessage>) => {
-      //TODO we should probably optimize rendering again based on old and new model
-      const template = this.view(model, dispatch);
+    const difference = differentiate<TMessage>(
+      this.#activeSubscriptions,
+      initialSubscriptions
+    );
 
-      render(template, shadowRoot);
-    };
+    // Stops no longer active subscriptions and starts not started ones
+    //TODO should dispatch be temporarily go to a buffer to allow setting properties or should view just not be called
+    this.#activeSubscriptions = change<TMessage>(
+      this.onError,
+      this.dispatch,
+      difference
+    );
 
-    const program: Program<unknown, TModel, TMessage, TemplateResult> = {
-      initialize: this.initialize,
-      update: this.update,
-      view: this.view,
-      setState,
-      subscribe: this.subscribe,
-      onError: this.onError,
-      termination: [(_) => false, () => {}],
-    };
-    // This is from the elmish program loop
+    this.#shadowRoot = this.attachShadow({ mode: "open" });
 
-    //TODO move this out of constructor to run only on connected
-    run(program);
+    // Set styles as soon as styles are generated
+    (this.constructor as typeof ElmishElement).styles?.then((sheet) =>
+      this.#shadowRoot.adoptedStyleSheets.push(sheet)
+    );
+
+    console.debug("Constructed");
   }
+
   // Attributes defined in the DOM are not available in the constructor and only at connected time
   connectedCallback() {
-    console.debug("Connected");
+    console.debug("Connected Program 2");
+    // Start program loop
+    // Start first loop
+    if (!this.isConnected || !this.isConnected) return;
+
+    this.#setState(this.#currentModel, this.dispatch);
+    this.#isProcessingMessages = true;
+    this.#processMessages();
+    this.#isProcessingMessages = false;
   }
 
   disconnectedCallback() {
