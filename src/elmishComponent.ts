@@ -1,6 +1,6 @@
 // The first attempt at an elmish base component
 
-import { TemplateResult, render } from "lit-html";
+import { TemplateResult, nothing, render } from "lit-html";
 import { type Command, type Dispatch } from "./elmish/command";
 import command from "./elmish/command";
 import { Termination } from "./elmish/program";
@@ -45,7 +45,7 @@ export default abstract class ElmishElement<
   protected abstract view(
     model: TModel,
     dispatch: Dispatch<TMessage>
-  ): TemplateResult;
+  ): TemplateResult | typeof nothing;
 
   /**
    * Implementing classes can overwrite this method
@@ -240,13 +240,10 @@ export default abstract class ElmishElement<
     (this.constructor as typeof ElmishElement).styles?.then((sheet) =>
       this.#shadowRoot.adoptedStyleSheets.push(sheet)
     );
-
-    console.debug("Constructed");
   }
 
   // Attributes defined in the DOM are not available in the constructor and only at connected time
   connectedCallback() {
-    console.debug("Connected Program 2");
     // Start program loop
     // Start first loop
     if (!this.isConnected || !this.isConnected) return;

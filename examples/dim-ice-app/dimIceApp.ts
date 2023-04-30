@@ -5,8 +5,9 @@ import { TemplateResult, html, nothing } from "lit-html";
 import { repeat } from "lit-html/directives/repeat.js";
 import ElmishElement from "../../src/elmishComponent";
 import Status from "./api/status";
-import { StatusCard, statusCard } from "./components/statusCard";
+import { StatusCard } from "./components/statusCard";
 import { css } from "./styling";
+import MediaAttachmentCollection from "./components/mediaAttachment";
 
 // I know you don't include them in source code normallyn
 // Client credentials can be created on the fly
@@ -443,5 +444,9 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
   }
 }
 
+customElements.define(
+  "dim-ice-media-attachments-collection",
+  MediaAttachmentCollection
+);
 customElements.define("dim-ice-status-card", StatusCard);
 customElements.define("dim-ice-app", DimIceApp);

@@ -4,6 +4,9 @@ import { repeat } from "lit-html/directives/repeat.js";
 import { decodeBlurHash } from "fast-blurhash";
 import { BlurHash } from "../api/string";
 import { generatePng } from "../pixelsToPng";
+import ElmishElement from "../../../src/elmishComponent";
+import command, { Command, Dispatch } from "../../../src/elmish/command";
+import { css } from "../styling";
 
 //TODO dispose object URL
 function convertToPngObjectUrl(
@@ -17,7 +20,7 @@ function convertToPngObjectUrl(
   return URL.createObjectURL(pngBlob);
 }
 
-export function mediaAttachment(
+function mediaAttachment(
   attachment: MediaAttachment
 ): TemplateResult | typeof nothing {
   if (attachment.type == "unknown")
@@ -75,13 +78,45 @@ export function mediaAttachment(
   }
 }
 
-export function mediaAttachments(
-  attachments: MediaAttachment[]
-): TemplateResult | typeof nothing {
-  if (attachments.length === 0) return nothing;
-
-  return html`
-    <h2>${attachments.length} Attachments</h2>
-    ${repeat(attachments, (attachment) => attachment.id, mediaAttachment)}
+type MediaAttachmentsMessage = {
+  type: "set attachments";
+  attachments: MediaAttachment[];
+};
+export default class MediaAttachmentCollection extends ElmishElement<
+  MediaAttachment[] | null,
+  MediaAttachmentsMessage
+> {
+  protected static styles?: Promise<CSSStyleSheet> = css`
+    video {
+      width: 100%;
+      border-radius: var(--radius-2);
+    }
   `;
+
+  initialize(): [null, Command<MediaAttachmentsMessage>] {
+    return [null, command.none];
+  }
+
+  set mediaAttachments(attachments: MediaAttachment[]) {
+    this.dispatch({ type: "set attachments", attachments });
+  }
+
+  protected override update(
+    message: MediaAttachmentsMessage
+  ): [MediaAttachment[] | null, Command<MediaAttachmentsMessage>] {
+    switch (message.type) {
+      //TODO put object url creation side effect here with dispose
+      case "set attachments":
+        return [message.attachments, command.none];
+    }
+  }
+
+  protected view(
+    attachments: MediaAttachment[] | null
+  ): TemplateResult | typeof nothing {
+    if (attachments === null || attachments.length === 0) return nothing;
+
+    return html`<h1>ATTACHMENTS</h1>
+      ${repeat(attachments, (attachment) => attachment.id, mediaAttachment)}`;
+  }
 }
