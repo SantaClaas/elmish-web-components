@@ -87,7 +87,7 @@ export default class MediaAttachmentCollection extends ElmishElement<
   MediaAttachmentsMessage
 > {
   protected static styles?: Promise<CSSStyleSheet> = css`
-    video {
+    img video {
       width: 100%;
       border-radius: var(--radius-2);
     }
@@ -97,7 +97,7 @@ export default class MediaAttachmentCollection extends ElmishElement<
     return [null, command.none];
   }
 
-  set mediaAttachments(attachments: MediaAttachment[]) {
+  set attachments(attachments: MediaAttachment[]) {
     this.dispatch({ type: "set attachments", attachments });
   }
 
@@ -116,7 +116,10 @@ export default class MediaAttachmentCollection extends ElmishElement<
   ): TemplateResult | typeof nothing {
     if (attachments === null || attachments.length === 0) return nothing;
 
-    return html`<h1>ATTACHMENTS</h1>
-      ${repeat(attachments, (attachment) => attachment.id, mediaAttachment)}`;
+    return html` ${repeat(
+      attachments,
+      (attachment) => attachment.id,
+      mediaAttachment
+    )}`;
   }
 }
