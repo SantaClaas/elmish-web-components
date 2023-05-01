@@ -49,7 +49,6 @@ export class StatusCard extends ElmishElement<
     message: StatusCardMessage,
     model: Status | null
   ): [Status | null, Command<StatusCardMessage>] {
-    console.debug("Received message");
     switch (message.type) {
       case "set status":
         return [message.status, command.none];
@@ -64,7 +63,6 @@ export class StatusCard extends ElmishElement<
     status: Status | null,
     dispatch: Dispatch<StatusCardMessage>
   ): TemplateResult {
-    console.debug("View", { status });
     if (status === null) {
       return html`<p>No Status</p>`;
     }

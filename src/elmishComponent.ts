@@ -99,26 +99,6 @@ export default abstract class ElmishElement<
   #isTerminated;
   #isProcessingMessages = false;
 
-  // The dispatch function is how we hook into the loop
-  // and provide users a way to update the state
-  // to start processing messages if there are new one as long as we are not terminated
-  // protected dispatch(message: TMessage) {
-  //   console.debug("Dispatched with", {
-  //     message,
-  //   });
-  //   // Break loop
-  //   if (this.#isTerminated) return;
-
-  //   // Enqueue messages to be processed
-  //   this.#messageQueue.push(message);
-  //   // Start processing if it hasn't started yet
-  //   if (this.#isProcessingMessages && this.isConnected) return;
-
-  //   this.#isProcessingMessages = true;
-  //   this.#processMessages();
-  //   this.#isProcessingMessages = false;
-  // }
-
   #processMessages() {
     let nextMessage = this.#messageQueue.shift();
     const [isTerminationRequested, terminate] = this.termination;
@@ -190,9 +170,6 @@ export default abstract class ElmishElement<
    * @returns
    */
   protected dispatch: Dispatch<TMessage> = (message: TMessage) => {
-    console.debug("Dispatched with", {
-      message,
-    });
     // Break loop
     if (this.#isTerminated) return;
 
@@ -214,7 +191,6 @@ export default abstract class ElmishElement<
     const [initialModal, initialCommands] = this.initialize();
     this.#currentModel = initialModal;
     const initialSubscriptions = this.subscribe(this.#currentModel);
-    console.debug("Commands to execute", { initialCommands });
     command.execute(
       (error) => this.onError(`Error initialzing`, error),
       this.dispatch,
