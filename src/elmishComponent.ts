@@ -182,6 +182,7 @@ export default abstract class ElmishElement<
     this.#processMessages();
     this.#isProcessingMessages = false;
   };
+
   // ⏬ Component lifecycle callbacks ⏬
 
   constructor() {

@@ -185,16 +185,16 @@ function createErrorUi(error?: AppError): TemplateResult | typeof nothing {
   //TODO implement proper error ui
   switch (error) {
     case "noCodeRedirect":
-      return html`<p>
+      return html`<section>
         No code was provided for authorization code flow. If you tried to sign
         in please go <a href="/">back</a> and try again
-      </p>`;
+      </section>`;
 
     case "outdatedBrowser":
-      return html`<p>
+      return html`<section>
         Your browser might not be up to date or doesn't fully support this app.
         Some features might not work as expected.
-      </p>`;
+      </section>`;
 
     // In case we have no error
     case undefined:
@@ -405,7 +405,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
     switch (model.type) {
       case "codeExchange":
         //TODO improve this short lived UI to be more user friendly and less technical terms
-        return html`<p>Exchaning token...</p>`;
+        return html`<section>Exchaning token...</section>`;
 
       case "firstOpen":
         const errorNotification = createErrorUi(model.error);
@@ -426,7 +426,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
           <a href="${model.authorizationUrl.href}">Authorize</a>`;
 
       case "loadingTimeline":
-        return html`<p>Loading toots...</p>`;
+        return html`<section>Loading toots...</section>`;
 
       case "homeTimeline":
         return html` <h1>Home Timeline</h1>

@@ -87,7 +87,9 @@ export default class MediaAttachmentCollection extends ElmishElement<
   MediaAttachmentsMessage
 > {
   protected static styles?: Promise<CSSStyleSheet> = css`
-    img video {
+    picture,
+    img,
+    video {
       width: 100%;
       border-radius: var(--radius-2);
     }
