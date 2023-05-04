@@ -36,55 +36,55 @@ export class StatusCard extends ElmishElement<
   Status | null,
   StatusCardMessage
 > {
-  protected static styles?: Promise<CSSStyleSheet> = css`
-    article {
-      border-radius: var(--radius-3);
-      border: var(--border-size-2) solid var(--surface-3);
-      box-shadow: var(--shadow-1);
-      overflow: hidden;
-      padding: var(--size-3);
-      background: var(--surface-2);
-      display: grid;
-      grid-template-columns: auto 1fr;
-      /* grid-template-rows: repeat(3, auto); */
-      gap: var(--size-3);
-    }
+  // protected static styles?: Promise<CSSStyleSheet> = css`
+  //   article {
+  //     border-radius: var(--radius-3);
+  //     border: var(--border-size-2) solid var(--surface-3);
+  //     box-shadow: var(--shadow-1);
+  //     overflow: hidden;
+  //     padding: var(--size-3);
+  //     background: var(--surface-2);
+  //     display: grid;
+  //     grid-template-columns: auto 1fr;
+  //     /* grid-template-rows: repeat(3, auto); */
+  //     gap: var(--size-3);
+  //   }
 
-    /* The account avatar */
-    img {
-      width: var(--size-10);
-      border-radius: var(--radius-round);
-    }
+  //   /* The account avatar */
+  //   img {
+  //     width: var(--size-10);
+  //     border-radius: var(--radius-round);
+  //   }
 
-    picture {
-      grid-row-start: span 2;
-      grid-column-start: 1;
-    }
+  //   picture {
+  //     grid-row-start: span 2;
+  //     grid-column-start: 1;
+  //   }
 
-    section.content {
-      grid-column-start: 2;
-    }
+  //   section.content {
+  //     grid-column-start: 2;
+  //   }
 
-    /* Reset paragraph default styling for user provided content */
-    p {
-      margin-block: 0;
-    }
+  //   /* Reset paragraph default styling for user provided content */
+  //   p {
+  //     margin-block: 0;
+  //   }
 
-    header {
-      grid-col-start: span 2;
-    }
+  //   header {
+  //     grid-col-start: span 2;
+  //   }
 
-    dim-ice-media-attachments-collection {
-      grid-column-start: 2;
-      grid-row-start: 3;
-    }
+  //   dim-ice-media-attachments-collection {
+  //     grid-column-start: 2;
+  //     grid-row-start: 3;
+  //   }
 
-    svg.retoot-icon {
-      width: var(--size-4);
-      justify-self: end;
-      align-self: end;
-    }
-  `;
+  //   svg.retoot-icon {
+  //     width: var(--size-4);
+  //     justify-self: end;
+  //     align-self: end;
+  //   }
+  // `;
 
   // Since Elmish Web Components are a weird mix of object oriented and functional design we need to hook this up
   // Setter based approach to state change through property
@@ -119,39 +119,108 @@ export class StatusCard extends ElmishElement<
     const languageCode = getLanguage(status);
 
     // We assume HTML provided by Mastodon is safe against XSS
-    return html` <article lang="${languageCode ?? nothing}">
-      <!-- <div>${accountAvatar(status.account)}</div> -->
+    // return html` <article lang="${languageCode ?? nothing}">
+    //   <!-- <div>${accountAvatar(status.account)}</div> -->
 
-      ${isRetoot
-        ? html`${retootIconSquare()}<span>${status.account.display_name}</span>`
-        : nothing}
-      ${accountAvatar(isRetoot ? status.reblog!.account : status.account)}
-      <header>
-        <span
-          >${(isRetoot ? status.reblog!.account : status.account)
-            .display_name}</span
-        >
-        <time datetime="${status.created_at}"
-          >${new Date(status.created_at).toLocaleString()}</time
-        >
-        <!-- ${isRetoot
-          ? html` <span>${status.reblog?.account.display_name}</span>
-              <time datetime="${status.reblog?.created_at}"
-                >${new Date(status.reblog!.created_at).toLocaleString()}</time
-              >`
-          : nothing} -->
-      </header>
-      <!-- <section>Is Retoot: ${isRetoot ? "yes" : "no"}</section> -->
+    //   ${isRetoot
+    //     ? html`${retootIconSquare()}<span>${status.account.display_name}</span>`
+    //     : nothing}
+    //   ${accountAvatar(isRetoot ? status.reblog!.account : status.account)}
+    //   <header>
+    //     <span
+    //       >${(isRetoot ? status.reblog!.account : status.account)
+    //         .display_name}</span
+    //     >
+    //     <time datetime="${status.created_at}"
+    //       >${new Date(status.created_at).toLocaleString()}</time
+    //     >
+    //     <!-- ${isRetoot
+    //       ? html` <span>${status.reblog?.account.display_name}</span>
+    //           <time datetime="${status.reblog?.created_at}"
+    //             >${new Date(status.reblog!.created_at).toLocaleString()}</time
+    //           >`
+    //       : nothing} -->
+    //   </header>
+    //   <!-- <section>Is Retoot: ${isRetoot ? "yes" : "no"}</section> -->
 
-      <section class="content">
-        ${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}
-      </section>
+    //   <section class="content">
+    //     ${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}
+    //   </section>
 
-      ${status.media_attachments.length > 0
-        ? html` <dim-ice-media-attachments-collection
-            .attachments=${status.media_attachments}
-          ></dim-ice-media-attachments-collection>`
-        : nothing}
-    </article>`;
+    //   ${status.media_attachments.length > 0
+    //     ? html` <dim-ice-media-attachments-collection
+    //         .attachments=${status.media_attachments}
+    //       ></dim-ice-media-attachments-collection>`
+    //     : nothing}
+    // </article>
+
+    // `;
+
+    return html`
+      <style>
+        article {
+          display: grid;
+          /* grid-template-rows: 1fr 1fr auto 1fr; */
+          grid-template-columns: auto 1fr 1fr;
+          grid-template-areas:
+            "header header header"
+            "header header header"
+            "aside content content"
+            "aside footer footer";
+        }
+
+        header {
+          display: grid;
+          grid-area: header;
+          background: blue;
+        }
+
+        /*TODO Find solution for when subgrid is not supported */
+        @supports (grid-template: subgrid / subgrid) {
+          header {
+            background: purple;
+            grid-template: subgrid / subgrid;
+          }
+        }
+        /* grid-area: <left> / <top> / <right> / <bottom>; */
+        aside {
+          grid-area: 2 / aside-start / footer-end / aside-end;
+
+          background: red;
+        }
+
+        footer {
+          background: green;
+          grid-area: footer-start / footer-start / footer-end / footer-end;
+        }
+
+        span.tooter {
+          grid-area: 2 / 2;
+          background: hotpink;
+        }
+
+        span.retooter {
+          grid-area: 1 / 2;
+        }
+
+        time {
+          grid-area: 3/ 3;
+        }
+      </style>
+      <article>
+        <header>
+          ${isRetoot
+            ? html` <span class="retoot-icon">🔁</span>
+                <span class="retooter">${status.account.display_name}</span>`
+            : nothing}
+
+          <span class="tooter">Tooter</span>
+          <time>Date</time>
+        </header>
+        <aside>Aside</aside>
+        <section>Content</section>
+        <footer>Reactions</footer>
+      </article>
+    `;
   }
 }
