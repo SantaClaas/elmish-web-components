@@ -117,6 +117,7 @@ export class StatusCard extends ElmishElement<
 
     const isRetoot = status.content === "" && status.reblog !== null;
     const languageCode = getLanguage(status);
+    const createdAt = isRetoot ? status.reblog!.created_at : status.created_at;
 
     // We assume HTML provided by Mastodon is safe against XSS
     // return html` <article lang="${languageCode ?? nothing}">
@@ -204,7 +205,17 @@ export class StatusCard extends ElmishElement<
         }
 
         time {
-          grid-area: 3/ 3;
+          grid-area: 3 / 3;
+        }
+
+        section {
+          grid-column-start: span 2;
+        }
+
+        /* The account avatar */
+        img {
+          width: var(--size-10);
+          border-radius: var(--radius-round);
         }
       </style>
       <article>
@@ -214,11 +225,21 @@ export class StatusCard extends ElmishElement<
                 <span class="retooter">${status.account.display_name}</span>`
             : nothing}
 
-          <span class="tooter">Tooter</span>
-          <time>Date</time>
+          <span class="tooter"
+            >${isRetoot
+              ? status.reblog!.account.display_name
+              : status.account.display_name}</span
+          >
+          <time datetime="${createdAt}"
+            >${new Date(createdAt).toLocaleString()}</time
+          >
         </header>
-        <aside>Aside</aside>
-        <section>Content</section>
+        <aside>
+          ${accountAvatar(isRetoot ? status.reblog!.account : status.account)}
+        </aside>
+        <section>
+          ${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}
+        </section>
         <footer>Reactions</footer>
       </article>
     `;
