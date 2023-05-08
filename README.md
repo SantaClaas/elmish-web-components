@@ -37,6 +37,7 @@ A Web App Component Framework built with Elmish on top of lit-html
 - Add ⚖️ licenses page and find out how to include license in source code
 - Try out a more functional programming approach to web components as it would better fit elmish by just defining the functions without a class and annotating them with decorators that mark them as the MVU parts of the elmish component. The decorators build the class from the marked functions and sets up the the lifecycle loop. Property changes are handled through the message type and the update functions can accept the property change notifications.
 - Provide advanced permissions UI to allow users to select what OAuth scopes the app has acccess to. In the spirit of OAuth
+- Try out [Popover API](https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/popover)
 
 ## A Note on Performance
 
