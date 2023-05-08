@@ -157,161 +157,49 @@ export class StatusCard extends ElmishElement<
 
     // `;
 
-    const oldCss = css`
-      article:has(span.retoot-icon) {
-        background: white;
-        grid-template-areas:
-          "header header header"
-          "aside content content"
-          "aside footer footer";
-      }
-
-      header {
-        /* The immitating of the outer grid with the image inside would not be necessary if subgrid was supported */
-        grid-template-columns: var(--avatar-width) 1fr 1fr;
-        grid-template-areas:
-          "retoot-icon reooter retooter"
-          "overlap tooter date";
-      }
-
-      span.tooter {
-        /* grid-area: tooter-start / tooter-start; */
-        grid-column-start: 2;
-      }
-
-      span.retooter {
-        grid-area: retooter-start / retooter-start / retooter-end / retooter-end;
-      }
-
-      time {
-        grid-column-start: 3;
-      }
-    `;
-
     return html`
       <style>
         :host {
           --avatar-width: var(--size-10);
         }
 
-        @supports not (grid-template: subgrid / subgrid) {
-          /* Change rows if we don't need a retoot row only when subgrid is not supported */
-          article {
-            display: grid;
-            grid-template-columns: auto 1fr 1fr;
-            grid-template-rows: repeat(3, auto);
-            background: green;
-          }
-
-          /* Extend rows count to enable header to have 2 rows */
-          article:has(header > span.retoot-icon) {
-            color: black;
-            grid-template-rows: repeat(4, auto);
-            /* gap: 1rem; */
-          }
-
-          header {
-            grid-column-start: 2;
-            grid-column-end: 4;
-
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            /* gap: 1rem; */
-
-            background: purple;
-          }
-
-          /* We shift the header to show the retoot icon above the avatar in case it is a retoot */
-          header:has(span.retoot-icon) {
-            /* In that case we need to immitate the outer grid */
-            grid-template-columns: var(--avatar-width) 1fr 1fr;
-            background: yellow;
-            grid-column-start: 1;
-            /* We span the header so that we can overlap the aside with the avatar half way */
-            grid-area: 1 / 1 / 3 / 4;
-          }
-
-          aside {
-            background: orange;
-            grid-area: 1 / 1 / 3 / 1;
-          }
-          /* If aside has a sibling header which has a retoot icon (meaning the toot is a retoot),
-             then start at the second row */
-          header:has(span.retoot-icon) + aside {
-            background: hotpink;
-            grid-area: 2 / 1 / 5 / 1;
-            /* grid-row-start: 2; */
-          }
-
-          /* If the above is true we also need to shift the items in the header grid because we changed the column count */
-
-          header:has(span.retoot-icon) > span.tooter {
-            background: gray;
-            grid-column-start: 2;
-          }
-          /* Do not need to shift the icon because it is in the first cell allways */
-
-          section {
-            background: red;
-          }
-
-          footer {
-            background: blue;
-          }
+        article {
+          display: grid;
+          grid-template: auto 1fr auto / var(--avatar-width) 1fr;
+          align-items: start;
         }
 
-        /*TODO Find solution for when subgrid is not supported */
-        /* Subgrid helps keepint header content semantically in the header but still applying the grid layout
-         Only supported in Firefox and Chrome Canary on Windows, at the time of writing */
-        @supports (grid-template: subgrid / subgrid) {
-          article {
-            display: grid;
-            /* grid-template-rows: 1fr 1fr auto 1fr; */
-            grid-template-columns: auto 1fr 1fr;
-            grid-template-areas:
-              "header header header"
-              "header header header"
-              "aside content content"
-              "aside footer footer";
-          }
-
-          header {
-            display: grid;
-            grid-area: header;
-            background: blue;
-            grid-template: subgrid / subgrid;
-          }
-
-          span.tooter {
-            grid-area: 2 / 2;
-            background: hotpink;
-          }
-
-          span.retooter {
-            grid-area: 1 / 2;
-          }
-
-          time {
-            grid-area: 3 / 3;
-          }
-
-          section {
-            grid-column-start: span 2;
-          }
-          /* grid-area: <left> / <top> / <right> / <bottom>; */
-          aside {
-            grid-area: 2 / aside-start / footer-end / aside-end;
-
-            background: red;
-          }
-
-          footer {
-            background: green;
-            grid-area: footer-start / footer-start / footer-end / footer-end;
-          }
+        header {
+          grid-area: 1 / 1 / 3 / 3;
+          background: green;
+          display: grid;
+          grid-template-columns: auto 1fr auto;
         }
 
+        span.tooter {
+          grid-column-start: 2;
+        }
+
+        section {
+          grid-area: 2 / 2 / 3 / 3;
+        }
+
+        footer {
+          grid-column-start: 2;
+          grid-row-start: 3;
+        }
         /* The account avatar */
+
+        /* picture {
+          grid-row-start: 1;
+          grid-column-start: 1;
+        } */
+
+        span.reooter + picture {
+          grid-row-start: 2;
+          grid-column-start: 1;
+        }
+
         img {
           width: var(--avatar-width);
           border-radius: var(--radius-round);
@@ -325,7 +213,7 @@ export class StatusCard extends ElmishElement<
             ? html` <span class="retoot-icon">🔁</span>
                 <span class="retooter">${status.account.display_name}</span>`
             : nothing}
-
+          ${accountAvatar(isRetoot ? status.reblog!.account : status.account)}
           <span class="tooter"
             >${isRetoot
               ? status.reblog!.account.display_name
@@ -335,9 +223,7 @@ export class StatusCard extends ElmishElement<
             >${new Date(createdAt).toLocaleString()}</time
           >
         </header>
-        <aside>
-          ${accountAvatar(isRetoot ? status.reblog!.account : status.account)}
-        </aside>
+        <aside>Aside</aside>
         <section>
           ${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}
         </section>
