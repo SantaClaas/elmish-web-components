@@ -36,55 +36,61 @@ export class StatusCard extends ElmishElement<
   Status | null,
   StatusCardMessage
 > {
-  // protected static styles?: Promise<CSSStyleSheet> = css`
-  //   article {
-  //     border-radius: var(--radius-3);
-  //     border: var(--border-size-2) solid var(--surface-3);
-  //     box-shadow: var(--shadow-1);
-  //     overflow: hidden;
-  //     padding: var(--size-3);
-  //     background: var(--surface-2);
-  //     display: grid;
-  //     grid-template-columns: auto 1fr;
-  //     /* grid-template-rows: repeat(3, auto); */
-  //     gap: var(--size-3);
-  //   }
+  protected static styles?: Promise<CSSStyleSheet> = css`
+    :host {
+      --avatar-width: var(--size-10);
+      --grid-gap: 0.5rem;
+    }
 
-  //   /* The account avatar */
-  //   img {
-  //     width: var(--size-10);
-  //     border-radius: var(--radius-round);
-  //   }
+    article {
+      display: grid;
+      grid-template-areas:
+        "header header"
+        "header header"
+        "aside content"
+        "aside footer";
+      grid-template-columns: var(--avatar-width) 1fr;
+      background: blue;
+      gap: var(--grid-gap);
+    }
 
-  //   picture {
-  //     grid-row-start: span 2;
-  //     grid-column-start: 1;
-  //   }
+    header {
+      grid-area: header;
+      background: green;
+      display: grid;
+      /* Need to imitate width of outer grid column with avatar since subgrid is not widely supported yet */
+      grid-template-columns: var(--avatar-width) 1fr auto;
+      column-gap: var(--grid-gap);
+    }
 
-  //   section.content {
-  //     grid-column-start: 2;
-  //   }
+    aside {
+      grid-area: aside;
+    }
 
-  //   /* Reset paragraph default styling for user provided content */
-  //   p {
-  //     margin-block: 0;
-  //   }
+    section {
+      grid-area: 2 / content-start / content-end / content-end;
+      background: orange;
+    }
 
-  //   header {
-  //     grid-col-start: span 2;
-  //   }
+    footer {
+      grid-area: footer;
+      background: purple;
+    }
 
-  //   dim-ice-media-attachments-collection {
-  //     grid-column-start: 2;
-  //     grid-row-start: 3;
-  //   }
+    /* The account avatar */
+    picture {
+      grid-column-start: 1;
+    }
 
-  //   svg.retoot-icon {
-  //     width: var(--size-4);
-  //     justify-self: end;
-  //     align-self: end;
-  //   }
-  // `;
+    img {
+      width: var(--avatar-width);
+      border-radius: var(--radius-round);
+    }
+
+    p {
+      margin-block: 0;
+    }
+  `;
 
   // Since Elmish Web Components are a weird mix of object oriented and functional design we need to hook this up
   // Setter based approach to state change through property
@@ -120,100 +126,9 @@ export class StatusCard extends ElmishElement<
     const createdAt = isRetoot ? status.reblog!.created_at : status.created_at;
 
     // We assume HTML provided by Mastodon is safe against XSS
-    // return html` <article lang="${languageCode ?? nothing}">
-    //   <!-- <div>${accountAvatar(status.account)}</div> -->
-
-    //   ${isRetoot
-    //     ? html`${retootIconSquare()}<span>${status.account.display_name}</span>`
-    //     : nothing}
-    //   ${accountAvatar(isRetoot ? status.reblog!.account : status.account)}
-    //   <header>
-    //     <span
-    //       >${(isRetoot ? status.reblog!.account : status.account)
-    //         .display_name}</span
-    //     >
-    //     <time datetime="${status.created_at}"
-    //       >${new Date(status.created_at).toLocaleString()}</time
-    //     >
-    //     <!-- ${isRetoot
-    //       ? html` <span>${status.reblog?.account.display_name}</span>
-    //           <time datetime="${status.reblog?.created_at}"
-    //             >${new Date(status.reblog!.created_at).toLocaleString()}</time
-    //           >`
-    //       : nothing} -->
-    //   </header>
-    //   <!-- <section>Is Retoot: ${isRetoot ? "yes" : "no"}</section> -->
-
-    //   <section class="content">
-    //     ${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}
-    //   </section>
-
-    //   ${status.media_attachments.length > 0
-    //     ? html` <dim-ice-media-attachments-collection
-    //         .attachments=${status.media_attachments}
-    //       ></dim-ice-media-attachments-collection>`
-    //     : nothing}
-    // </article>
-
-    // `;
 
     return html`
-      <style>
-        :host {
-          --avatar-width: var(--size-10);
-        }
-
-        article {
-          display: grid;
-          grid-template-areas:
-            "header header"
-            "header header"
-            "aside content"
-            "aside footer";
-          grid-template-columns: var(--avatar-width) 1fr;
-        }
-
-        header {
-          grid-area: header;
-          background: green;
-          display: grid;
-          grid-template-columns: var(--avatar-width) 1fr auto;
-        }
-
-        aside {
-          grid-area: aside;
-        }
-
-        section {
-          grid-area: 2 / content-start / content-end / content-end;
-          background: orange;
-        }
-
-        footer {
-          /* grid-column-start: 2;
-          grid-row-start: 4; */
-          grid-area: footer;
-          background: purple;
-        }
-        /* The account avatar */
-        picture {
-          grid-column-start: 1;
-        }
-        span.reooter + picture {
-        }
-
-        img {
-          width: var(--avatar-width);
-          border-radius: var(--radius-round);
-        }
-
-        p {
-          margin-block: 0;
-        }
-      </style>
-      <article
-        @click=${() => console.debug(this.querySelectorAll(".retoot-icon"))}
-      >
+      <article lang="${languageCode ?? nothing}">
         <header>
           ${isRetoot
             ? html` <span class="retoot-icon">🔁</span>
@@ -229,7 +144,6 @@ export class StatusCard extends ElmishElement<
             >${new Date(createdAt).toLocaleString()}</time
           >
         </header>
-        <!-- <aside>Aside</aside> -->
         <section>
           ${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}
         </section>
