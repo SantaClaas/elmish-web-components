@@ -165,44 +165,50 @@ export class StatusCard extends ElmishElement<
 
         article {
           display: grid;
-          grid-template: auto 1fr auto / var(--avatar-width) 1fr;
-          align-items: start;
+          grid-template-areas:
+            "header header"
+            "header header"
+            "aside content"
+            "aside footer";
+          grid-template-columns: var(--avatar-width) 1fr;
         }
 
         header {
-          grid-area: 1 / 1 / 3 / 3;
+          grid-area: header;
           background: green;
           display: grid;
-          grid-template-columns: auto 1fr auto;
+          grid-template-columns: var(--avatar-width) 1fr auto;
         }
 
-        span.tooter {
-          grid-column-start: 2;
+        aside {
+          grid-area: aside;
         }
 
         section {
-          grid-area: 2 / 2 / 3 / 3;
+          grid-area: 2 / content-start / content-end / content-end;
+          background: orange;
         }
 
         footer {
-          grid-column-start: 2;
-          grid-row-start: 3;
+          /* grid-column-start: 2;
+          grid-row-start: 4; */
+          grid-area: footer;
+          background: purple;
         }
         /* The account avatar */
-
-        /* picture {
-          grid-row-start: 1;
+        picture {
           grid-column-start: 1;
-        } */
-
+        }
         span.reooter + picture {
-          grid-row-start: 2;
-          grid-column-start: 1;
         }
 
         img {
           width: var(--avatar-width);
           border-radius: var(--radius-round);
+        }
+
+        p {
+          margin-block: 0;
         }
       </style>
       <article
@@ -223,7 +229,7 @@ export class StatusCard extends ElmishElement<
             >${new Date(createdAt).toLocaleString()}</time
           >
         </header>
-        <aside>Aside</aside>
+        <!-- <aside>Aside</aside> -->
         <section>
           ${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}
         </section>
