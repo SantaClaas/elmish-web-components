@@ -39,7 +39,7 @@ export class StatusCard extends ElmishElement<
   protected static styles?: Promise<CSSStyleSheet> = css`
     :host {
       --avatar-width: var(--size-10);
-      --grid-gap: 0.5rem;
+      --grid-gap: var(--size-3);
     }
 
     article {
@@ -50,13 +50,16 @@ export class StatusCard extends ElmishElement<
         "aside content"
         "aside footer";
       grid-template-columns: var(--avatar-width) 1fr;
-      background: blue;
       gap: var(--grid-gap);
+      padding: var(--grid-gap);
+      background-color: var(--surface-2);
+      border-radius: var(--radius-3);
+      border: var(--border-size-2) solid var(--surface-3);
+      box-shadow: var(--shadow-1);
     }
 
     header {
       grid-area: header;
-      background: green;
       display: grid;
       /* Need to imitate width of outer grid column with avatar since subgrid is not widely supported yet */
       grid-template-columns: var(--avatar-width) 1fr auto;
@@ -69,12 +72,10 @@ export class StatusCard extends ElmishElement<
 
     section {
       grid-area: 2 / content-start / content-end / content-end;
-      background: orange;
     }
 
     footer {
       grid-area: footer;
-      background: purple;
     }
 
     /* The account avatar */
