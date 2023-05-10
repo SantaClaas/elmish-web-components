@@ -32,6 +32,10 @@ function retootIconSquare(): TemplateResult {
   `;
 }
 
+const formatter = new Intl.RelativeTimeFormat(undefined, {
+  style: "narrow",
+  numeric: "auto",
+});
 export class StatusCard extends ElmishElement<
   Status | null,
   StatusCardMessage
@@ -39,7 +43,13 @@ export class StatusCard extends ElmishElement<
   protected static styles?: Promise<CSSStyleSheet> = css`
     :host {
       --avatar-width: var(--size-10);
-      --grid-gap: var(--size-3);
+      --grid-gap: var(--size-2);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :host {
+        --text-3: var(--gray-5);
+      }
     }
 
     article {
@@ -51,7 +61,7 @@ export class StatusCard extends ElmishElement<
         "aside footer";
       grid-template-columns: var(--avatar-width) 1fr;
       gap: var(--grid-gap);
-      padding: var(--grid-gap);
+      padding: var(--size-3);
       background-color: var(--surface-2);
       border-radius: var(--radius-3);
       border: var(--border-size-2) solid var(--surface-3);
@@ -75,7 +85,8 @@ export class StatusCard extends ElmishElement<
     }
 
     footer {
-      grid-area: footer;
+      /* grid-area: footer; */
+      grid-column-start: 2;
     }
 
     /* The account avatar */
@@ -88,8 +99,42 @@ export class StatusCard extends ElmishElement<
       border-radius: var(--radius-round);
     }
 
+    dim-ice-media-attachments-collection {
+      grid-column-start: 2;
+    }
+
     p {
       margin-block: 0;
+    }
+
+    svg {
+      width: var(--size-4);
+      justify-self: end;
+      align-self: end;
+      color: var(--text-3);
+    }
+
+    span.retooter {
+      font-size: var(--font-size-1);
+      line-height: var(--font-lineheight-0);
+      align-self: end;
+      color: var(--text-3);
+    }
+
+    span.tooter {
+      font-size: var(--font-size-3);
+      font-weight: var(--font-weight-4);
+      color: var(--text-1);
+      margin-bottom: var(--size-3);
+      align-self: start;
+    }
+
+    time {
+      color: var(--text-3);
+    }
+
+    div {
+      background: wheat;
     }
   `;
 
@@ -114,6 +159,29 @@ export class StatusCard extends ElmishElement<
     return [null, command.none];
   }
 
+  static #getRelativeDate(date: Date) {
+    // Naive approach to duration without temporal API
+    const difference = date.getTime() - new Date().getTime();
+    const seconds = difference / 1000;
+    const minutes = seconds / 60;
+    if (minutes > -1) {
+      const rounded = Math.round(seconds);
+      return formatter.format(rounded, "second");
+    }
+
+    const hours = minutes / 60;
+    if (hours > -1) {
+      return formatter.format(Math.round(minutes), "minute");
+    }
+
+    const days = hours / 24;
+    // Is "yesterday" or "one day ago" before last midnight or between the last 24 and 48 hours?
+    if (days > -1) {
+      return formatter.format(Math.round(hours), "hour");
+    }
+
+    return formatter.format(Math.round(days), "day");
+  }
   protected view(
     status: Status | null,
     dispatch: Dispatch<StatusCardMessage>
@@ -125,29 +193,44 @@ export class StatusCard extends ElmishElement<
     const isRetoot = status.content === "" && status.reblog !== null;
     const languageCode = getLanguage(status);
     const createdAt = isRetoot ? status.reblog!.created_at : status.created_at;
+    const attachments = isRetoot
+      ? status.reblog!.media_attachments
+      : status.media_attachments;
 
+    const createdAtDate = new Date(createdAt);
+    const relativeDate = StatusCard.#getRelativeDate(createdAtDate);
     // We assume HTML provided by Mastodon is safe against XSS
 
     return html`
       <article lang="${languageCode ?? nothing}">
         <header>
           ${isRetoot
-            ? html` <span class="retoot-icon">🔁</span>
+            ? html`${retootIconSquare()}
                 <span class="retooter">${status.account.display_name}</span>`
             : nothing}
           ${accountAvatar(isRetoot ? status.reblog!.account : status.account)}
+
           <span class="tooter"
             >${isRetoot
               ? status.reblog!.account.display_name
               : status.account.display_name}</span
           >
-          <time datetime="${createdAt}"
-            >${new Date(createdAt).toLocaleString()}</time
+
+          <time
+            datetime="${createdAt}"
+            title="${createdAtDate.toLocaleString()}"
+            >${relativeDate}</time
           >
         </header>
         <section>
           ${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}
         </section>
+        ${attachments.length > 0
+          ? html` <dim-ice-media-attachments-collection
+              .attachments=${attachments}
+            ></dim-ice-media-attachments-collection>`
+          : nothing}
+
         <footer>Reactions</footer>
       </article>
     `;
