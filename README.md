@@ -61,6 +61,7 @@ Performance is not my first concern but important. Much of the code I write is a
   - Set up GitHub Actions pipeline to automatically publish package
 - Set up GitHub Actions pipleline to automaticall publish Dim Ice App
 - Set up code workspace with recommended settings and extensions
+- Improve performance of loading toots (probably image loading and blurhash is taking too long)
 
 <br/>
 

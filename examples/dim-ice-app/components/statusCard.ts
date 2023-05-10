@@ -66,6 +66,7 @@ export class StatusCard extends ElmishElement<
       border-radius: var(--radius-3);
       border: var(--border-size-2) solid var(--surface-3);
       box-shadow: var(--shadow-1);
+      overflow: hidden;
     }
 
     header {
@@ -73,6 +74,7 @@ export class StatusCard extends ElmishElement<
       display: grid;
       /* Need to imitate width of outer grid column with avatar since subgrid is not widely supported yet */
       grid-template-columns: var(--avatar-width) 1fr auto;
+      grid-template-rows: auto 1fr;
       column-gap: var(--grid-gap);
     }
 
@@ -85,7 +87,6 @@ export class StatusCard extends ElmishElement<
     }
 
     footer {
-      /* grid-area: footer; */
       grid-column-start: 2;
     }
 
@@ -161,6 +162,7 @@ export class StatusCard extends ElmishElement<
 
   static #getRelativeDate(date: Date) {
     // Naive approach to duration without temporal API
+    // Substracting the larger date from the smaller date since we need a negative number for formatting
     const difference = date.getTime() - new Date().getTime();
     const seconds = difference / 1000;
     const minutes = seconds / 60;
