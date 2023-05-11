@@ -4,7 +4,7 @@ name: Deploy static content to Pages
 on:
   # Runs on pushes targeting the default branch
   push:
-    branches: ['main']
+    branches: ["main"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -29,19 +29,22 @@ jobs:
       - name: 🦭 Set up Node
         uses: actions/setup-node@v3
         with:
-          cache: 'npm'
+          cache: "npm"
       - name: 👷 Run build
-        run: | 
-          npm ci 
+        run: |
+          npm ci
           npm run build:unsafe
       - name: 📝 list contents
         run: ls dist/
+      # Copy index.html to 404.html to serve the same file when a file is not found. This fixes GitHub Pages routing issues
+      - name: 🚷 Copy index.html to 404.html
+        run: cp ./dist/index.html ./dist/404.html
       - name: 🆙 Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
           # Upload public
-          path: 'dist/'
-          
+          path: "dist/"
+
   deploy:
     # Only start after build
     needs: build
