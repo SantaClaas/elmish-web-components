@@ -42,8 +42,9 @@ export class StatusCard extends ElmishElement<
 > {
   protected static styles?: Promise<CSSStyleSheet> = css`
     :host {
-      --avatar-width: var(--size-10);
+      --avatar-width: var(--size-8);
       --grid-gap: var(--size-2);
+      --half-avatar-width: calc(var(--avatar-width) / 2);
     }
 
     @media (prefers-color-scheme: dark) {
@@ -60,6 +61,8 @@ export class StatusCard extends ElmishElement<
         "aside content"
         "aside footer";
       grid-template-columns: var(--avatar-width) 1fr;
+      --half-avatar: calc(var(--avatar-width) / 2);
+      grid-template-rows: auto var(--half-avatar) 1fr auto;
       gap: var(--grid-gap);
       padding: var(--size-3);
       background-color: var(--surface-2);
@@ -69,21 +72,40 @@ export class StatusCard extends ElmishElement<
       overflow: hidden;
     }
 
+    article:has(span.retooter) {
+      grid-template-rows: auto var(--half-avatar) 1fr auto;
+    }
+
     header {
       grid-area: header;
       display: grid;
       /* Need to imitate width of outer grid column with avatar since subgrid is not widely supported yet */
       grid-template-columns: var(--avatar-width) 1fr auto;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: var(--half-avatar-width) var(--half-avatar-width);
+      grid-template-areas:
+        "retoot-icon retooter retooter"
+        "avatar tooter date"
+        "avatar content content";
       column-gap: var(--grid-gap);
     }
-
+    article:has(span.retooter) header {
+      grid-template-rows: auto var(--half-avatar-width) var(--half-avatar-width);
+    }
     aside {
       grid-area: aside;
     }
 
     section {
       grid-area: 2 / content-start / content-end / content-end;
+    }
+
+    article:has(span.retooter) section {
+      grid-area: 3 / content-start / content-end / content-end;
+    }
+
+    /* Fix links in toots overflowing */
+    section p a {
+      overflow-wrap: anywhere;
     }
 
     footer {
@@ -93,6 +115,8 @@ export class StatusCard extends ElmishElement<
     /* The account avatar */
     picture {
       grid-column-start: 1;
+      grid-row-start: 1;
+      grid-row-end: 3;
     }
 
     img {
@@ -109,10 +133,16 @@ export class StatusCard extends ElmishElement<
     }
 
     svg {
-      width: var(--size-4);
+      width: var(--size-3);
       justify-self: end;
       align-self: end;
       color: var(--text-3);
+      grid-column-start: 1;
+      grid-row-start: 1;
+    }
+
+    span.retooter + picture {
+      grid-row-start: 2;
     }
 
     span.retooter {
@@ -120,22 +150,26 @@ export class StatusCard extends ElmishElement<
       line-height: var(--font-lineheight-0);
       align-self: end;
       color: var(--text-3);
+      grid-column-start: 2;
+      grid-row-start: 1;
     }
 
     span.tooter {
       font-size: var(--font-size-3);
       font-weight: var(--font-weight-4);
       color: var(--text-1);
-      margin-bottom: var(--size-3);
+      /* margin-bottom: var(--size-3); */
       align-self: start;
+      grid-column-start: 2;
+    }
+
+    span.retooter + span.tooter {
+      grid-row-start: 2;
     }
 
     time {
       color: var(--text-3);
-    }
-
-    div {
-      background: wheat;
+      grid-column-start: 3;
     }
   `;
 
@@ -223,6 +257,7 @@ export class StatusCard extends ElmishElement<
             title="${createdAtDate.toLocaleString()}"
             >${relativeDate}</time
           >
+          <!-- <div>Content</div> -->
         </header>
         <section>
           ${unsafeHTML(isRetoot ? status.reblog?.content : status.content)}
