@@ -61,8 +61,7 @@ export class StatusCard extends ElmishElement<
         "aside content"
         "aside footer";
       grid-template-columns: var(--avatar-width) 1fr;
-      --half-avatar: calc(var(--avatar-width) / 2);
-      grid-template-rows: auto var(--half-avatar) 1fr auto;
+      grid-template-rows: auto var(--half-avatar-width) 1fr auto;
       gap: var(--grid-gap);
       padding: var(--size-3);
       background-color: var(--surface-2);
@@ -73,7 +72,7 @@ export class StatusCard extends ElmishElement<
     }
 
     article:has(span.retooter) {
-      grid-template-rows: auto var(--half-avatar) 1fr auto;
+      grid-template-rows: auto var(--half-avatar-width) 1fr auto;
     }
 
     header {
@@ -96,10 +95,6 @@ export class StatusCard extends ElmishElement<
     }
 
     section {
-      grid-area: 2 / content-start / content-end / content-end;
-    }
-
-    article:has(span.retooter) section {
       grid-area: 2 / content-start / content-end / content-end;
     }
 
