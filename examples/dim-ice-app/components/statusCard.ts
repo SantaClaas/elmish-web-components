@@ -81,7 +81,7 @@ export class StatusCard extends ElmishElement<
       display: grid;
       /* Need to imitate width of outer grid column with avatar since subgrid is not widely supported yet */
       grid-template-columns: var(--avatar-width) 1fr auto;
-      grid-template-rows: var(--half-avatar-width) var(--half-avatar-width);
+      grid-template-rows: auto var(--half-avatar-width);
       grid-template-areas:
         "retoot-icon retooter retooter"
         "avatar tooter date"
@@ -100,7 +100,7 @@ export class StatusCard extends ElmishElement<
     }
 
     article:has(span.retooter) section {
-      grid-area: 3 / content-start / content-end / content-end;
+      grid-area: 2 / content-start / content-end / content-end;
     }
 
     /* Fix links in toots overflowing */
@@ -161,6 +161,7 @@ export class StatusCard extends ElmishElement<
       /* margin-bottom: var(--size-3); */
       align-self: start;
       grid-column-start: 2;
+      line-height: var(--font-lineheight-0);
     }
 
     span.retooter + span.tooter {
