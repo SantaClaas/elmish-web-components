@@ -383,20 +383,17 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
       padding-inline-start: 0;
     }
 
+    ul > * + * {
+      border-top: var(--border-size-2) solid var(--surface-2);
+    }
+
     /* Start of styling */
 
     :host {
-      padding: var(--size-4);
       /* Default display does not seem to be block and causes content to overflow and display normally.
          But padding and other styles only apply to a small rectangle
        */
       display: block;
-    }
-
-    ul {
-      display: flex;
-      flex-direction: column;
-      gap: var(--size-4);
     }
   `;
 

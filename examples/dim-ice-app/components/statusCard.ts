@@ -44,7 +44,9 @@ export class StatusCard extends ElmishElement<
     :host {
       --avatar-width: var(--size-8);
       --grid-gap: var(--size-2);
+      /* --grid-gap: 0; */
       --half-avatar-width: calc(var(--avatar-width) / 2);
+      display: block;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -62,12 +64,8 @@ export class StatusCard extends ElmishElement<
         "aside footer";
       grid-template-columns: var(--avatar-width) 1fr;
       grid-template-rows: auto var(--half-avatar-width) 1fr auto;
-      gap: var(--grid-gap);
-      padding: var(--size-3);
-      background-color: var(--surface-2);
-      border-radius: var(--radius-3);
-      border: var(--border-size-2) solid var(--surface-3);
-      box-shadow: var(--shadow-1);
+      gap: 0 var(--grid-gap);
+      padding: var(--size-2);
       overflow: hidden;
     }
 
@@ -76,20 +74,29 @@ export class StatusCard extends ElmishElement<
     }
 
     header {
-      grid-area: header;
+      grid-row-start: 1;
+      grid-row-end: 2;
+      grid-column-start: span 2;
       display: grid;
       /* Need to imitate width of outer grid column with avatar since subgrid is not widely supported yet */
       grid-template-columns: var(--avatar-width) 1fr auto;
-      grid-template-rows: auto var(--half-avatar-width);
-      grid-template-areas:
-        "retoot-icon retooter retooter"
-        "avatar tooter date"
-        "avatar content content";
+      grid-template-rows: auto;
       column-gap: var(--grid-gap);
     }
+
+    header:has(span.retooter) {
+      grid-area: header;
+      grid-template-rows: var(--half-avatar-width);
+    }
+
+    header:has(span.retooter) {
+      grid-template-rows: auto var(--half-avatar-width);
+    }
+
     article:has(span.retooter) header {
       grid-template-rows: auto var(--half-avatar-width) var(--half-avatar-width);
     }
+
     aside {
       grid-area: aside;
     }
@@ -110,8 +117,12 @@ export class StatusCard extends ElmishElement<
     /* The account avatar */
     picture {
       grid-column-start: 1;
-      grid-row-start: 1;
-      grid-row-end: 3;
+      /* Remove the height so that img overflows and container height is determined by tooter name text height */
+      height: 0;
+    }
+
+    span.retooter + picture {
+      grid-row-start: 2;
     }
 
     img {
@@ -136,10 +147,6 @@ export class StatusCard extends ElmishElement<
       grid-row-start: 1;
     }
 
-    span.retooter + picture {
-      grid-row-start: 2;
-    }
-
     span.retooter {
       font-size: var(--font-size-1);
       line-height: var(--font-lineheight-0);
@@ -157,6 +164,7 @@ export class StatusCard extends ElmishElement<
       align-self: start;
       grid-column-start: 2;
       line-height: var(--font-lineheight-0);
+      min-height: 0;
     }
 
     span.retooter + span.tooter {
@@ -166,6 +174,8 @@ export class StatusCard extends ElmishElement<
     time {
       color: var(--text-3);
       grid-column-start: 3;
+      line-height: var(--font-lineheight-0);
+      align-self: start;
     }
   `;
 
