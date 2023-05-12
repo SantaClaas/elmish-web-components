@@ -25,6 +25,6 @@
   "dependencies": {
     "fast-blurhash": "^1.1.2",
     "lit-html": "^2.7.1",
-    "open-props": "^1.5.7"
+    "open-props": "^1.5.8"
   }
 }

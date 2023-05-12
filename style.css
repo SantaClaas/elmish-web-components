@@ -8,3 +8,14 @@
 /* optional imports that use the props */
 @import "open-props/postcss/normalize";
 @import "open-props/postcss/buttons";
+
+/* Using the beta of oklch support to simplify color theming/branding.
+see: https://nerdy.dev/open-props-oklch-palettes-beta
+TODO check if it is in full release */
+/* @import "open-props/colors-oklch"; */
+/* @import "open-props/postcss/colors-oklch"; */
+/* @import "https://unpkg.com/open-props/colors-oklch.min.css"; */
+
+/* * {
+  --color-hue: 90deg;
+} */

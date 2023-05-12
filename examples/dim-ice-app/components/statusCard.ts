@@ -52,19 +52,22 @@ export class StatusCard extends ElmishElement<
       /* --grid-gap: 0; */
       --half-avatar-width: calc(var(--avatar-width) / 2);
       display: block;
-      --brand-0: var(--yellow-0);
-      --brand-1: var(--yellow-1);
-      --brand-2: var(--yellow-2);
-      --brand-3: var(--yellow-3);
-      --brand-4: var(--yellow-4);
-      --brand-5: var(--yellow-5);
-      --brand-6: var(--yellow-6);
-      --brand-7: var(--yellow-7);
-      --brand-8: var(--yellow-8);
-      --brand-9: var(--yellow-9);
-      --brand-10: var(--teal-10);
-      --brand-11: var(--teal-11);
-      --brand-12: var(--teal-12);
+      --brand-0: var(--color-0);
+      --brand-1: var(--color-1);
+      --brand-2: var(--color-2);
+      --brand-3: var(--color-3);
+      --brand-4: var(--color-4);
+      --brand-5: var(--color-5);
+      --brand-6: var(--color-6);
+      --brand-7: var(--color-7);
+      --brand-8: var(--color-8);
+      --brand-9: var(--color-9);
+      --brand-10: var(--color-10);
+      --brand-11: var(--color-11);
+      --brand-12: var(--color-12);
+      --brand-13: var(--color-13);
+      --brand-14: var(--color-14);
+      --brand-15: var(--color-15);
     }
 
     @media (prefers-color-scheme: dark) {
@@ -169,7 +172,7 @@ export class StatusCard extends ElmishElement<
 
     section a {
       text-decoration: none;
-      color: oklch(70% 0.3 200deg);
+      color: var(--brand-5);
     }
 
     footer {
