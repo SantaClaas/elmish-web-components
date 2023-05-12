@@ -28,11 +28,11 @@ function mediaAttachment(
       >Download "${attachment.description}"</a
     >`;
 
-  const objectUrl = convertToPngObjectUrl(
-    attachment.blurhash,
-    attachment.meta.original?.width!,
-    attachment.meta.original?.height!
-  );
+  // const objectUrl = convertToPngObjectUrl(
+  //   attachment.blurhash,
+  //   attachment.meta.original?.width!,
+  //   attachment.meta.original?.height!
+  // );
 
   switch (attachment.type) {
     case "gifv":
@@ -66,7 +66,6 @@ function mediaAttachment(
         />
         <img
           loading="lazy"
-          src="${objectUrl}"
           srcset="${sourceSet}"
           alt="${attachment.description}"
         />
