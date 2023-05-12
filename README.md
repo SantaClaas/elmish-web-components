@@ -9,9 +9,12 @@ A Web App Component Framework built with Elmish on top of lit-html
 - [fast-blurhash](https://github.com/mad-gooze/fast-blurhash) [License](https://github.com/mad-gooze/fast-blurhash/blob/main/LICENSE) based on [Blurhash](https://github.com/woltapp/blurhash/), to decode blurhash provided by Mastodon API to show a preview of images or use as background fill instead of black bars. [fast-blurhash](https://github.com/mad-gooze/fast-blurhash) seems to offer a ✨ Performance ✨ improvement at no additional cost (although the improvement is debatable as I didn't measure it in the app)
 
 - Open Props, because it makes styling web components with CSS variables easier
+
   - Setting up open props: https://stackblitz.com/edit/jit-open-props?file=index.css
   - https://youtu.be/szPNMKZazzQ
   - https://youtu.be/ohJcZW60br0
+
+- [heroicons](https://heroicons.com/) - nice SVG icons
 
 ## ✨ Random Idea list ✨
 
@@ -64,6 +67,7 @@ Performance is not my first concern but important. Much of the code I write is a
 - Set up code workspace with recommended settings and extensions
 - Improve performance of loading toots (probably image loading and blurhash is taking too long)
 - Update time of post with timer
+- Add "pull to refresh" with scroll snap as seen in Adam Argyle's "Oh Snap!" talk
 
 <br/>
 
