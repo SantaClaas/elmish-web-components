@@ -8,6 +8,7 @@ import Status from "./api/status";
 import { StatusCard } from "./components/statusCard";
 import { css } from "./styling";
 import MediaAttachmentCollection from "./components/mediaAttachment";
+import "@lit-labs/virtualizer";
 
 // I know you don't include them in source code normallyn
 // Client credentials can be created on the fly
@@ -428,14 +429,14 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
       case "homeTimeline":
         return html` <h1>Home Timeline</h1>
           <ul>
-            ${repeat(
-              model.stati,
-              (status) => status.id,
-              (status) =>
+            <lit-virtualizer
+              .items=${model.stati}
+              .renderItem=${(status: Status) =>
                 html`<dim-ice-status-card
                   .status=${status}
-                ></dim-ice-status-card>`
-            )}
+                ></dim-ice-status-card>`}
+            >
+            </lit-virtualizer>
           </ul>`;
     }
   }

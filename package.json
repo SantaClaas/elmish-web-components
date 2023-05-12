@@ -23,6 +23,7 @@
     "vitest": "^0.29.7"
   },
   "dependencies": {
+    "@lit-labs/virtualizer": "^2.0.2",
     "fast-blurhash": "^1.1.2",
     "lit-html": "^2.7.1",
     "open-props": "^1.5.8"
