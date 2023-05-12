@@ -46,6 +46,8 @@ Performance is not my first concern but important. Much of the code I write is a
 ## Roadmap 🛣️
 
 - Allow easy separation of styling and markup for components ✅
+- Set up GitHub Actions pipleline to automaticall publish Dim Ice App ✅
+- Use container queries to hide link url parts depending on size of container
 - Create new app after user wants to authorize with server for that server and persist credentials in storage
 - Simplify route state management (Routing)
 
@@ -59,9 +61,9 @@ Performance is not my first concern but important. Much of the code I write is a
     - Check if that doesn't create too much overhead
     - Check if you can use local path for packages
   - Set up GitHub Actions pipeline to automatically publish package
-- Set up GitHub Actions pipleline to automaticall publish Dim Ice App
 - Set up code workspace with recommended settings and extensions
 - Improve performance of loading toots (probably image loading and blurhash is taking too long)
+- Update time of post with timer
 
 <br/>
 
