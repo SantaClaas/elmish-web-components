@@ -13,10 +13,15 @@ function getLanguage(status: Status) {
   return status.language;
 }
 
-type StatusCardMessage = {
-  type: "set status";
-  status: Status;
-};
+type StatusCardMessage =
+  | {
+      type: "set status";
+      status: Status;
+    }
+  | { type: "comment" }
+  | { type: "retoot" }
+  | { type: "like" }
+  | { type: "favorite" };
 
 function retootIcon(): TemplateResult {
   return svg`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -47,6 +52,19 @@ export class StatusCard extends ElmishElement<
       /* --grid-gap: 0; */
       --half-avatar-width: calc(var(--avatar-width) / 2);
       display: block;
+      --brand-0: var(--yellow-0);
+      --brand-1: var(--yellow-1);
+      --brand-2: var(--yellow-2);
+      --brand-3: var(--yellow-3);
+      --brand-4: var(--yellow-4);
+      --brand-5: var(--yellow-5);
+      --brand-6: var(--yellow-6);
+      --brand-7: var(--yellow-7);
+      --brand-8: var(--yellow-8);
+      --brand-9: var(--yellow-9);
+      --brand-10: var(--teal-10);
+      --brand-11: var(--teal-11);
+      --brand-12: var(--teal-12);
     }
 
     @media (prefers-color-scheme: dark) {
@@ -89,12 +107,51 @@ export class StatusCard extends ElmishElement<
       grid-template-rows: var(--half-avatar-width);
     }
 
+    article:has(span.retooter) header {
+      grid-template-rows: auto var(--half-avatar-width) var(--half-avatar-width);
+    }
+
     header:has(span.retooter) {
       grid-template-rows: auto var(--half-avatar-width);
     }
 
-    article:has(span.retooter) header {
-      grid-template-rows: auto var(--half-avatar-width) var(--half-avatar-width);
+    header svg {
+      width: var(--size-3);
+      justify-self: end;
+      align-self: end;
+      color: var(--text-3);
+      grid-column-start: 1;
+      grid-row-start: 1;
+    }
+
+    span.retooter {
+      font-size: var(--font-size-1);
+      line-height: var(--font-lineheight-0);
+      align-self: end;
+      color: var(--text-3);
+      grid-column-start: 2;
+      grid-row-start: 1;
+    }
+
+    span.tooter {
+      font-size: var(--font-size-3);
+      font-weight: var(--font-weight-4);
+      color: var(--text-1);
+      align-self: start;
+      grid-column-start: 2;
+      line-height: var(--font-lineheight-0);
+      min-height: 0;
+    }
+
+    span.retooter + span.tooter {
+      grid-row-start: 2;
+    }
+
+    time {
+      color: var(--text-3);
+      grid-column-start: 3;
+      line-height: var(--font-lineheight-0);
+      align-self: start;
     }
 
     aside {
@@ -110,19 +167,39 @@ export class StatusCard extends ElmishElement<
       overflow-wrap: anywhere;
     }
 
-    footer {
-      grid-column-start: 2;
-      display: flex;
-      justify-content: space-between;
-      margin-block-start: var(--size-3);
+    section a {
+      text-decoration: none;
+      color: oklch(70% 0.3 200deg);
     }
+
+    footer {
+      margin-block-start: var(--size-3);
+      grid-column-start: 2;
+      display: grid;
+      grid-template-columns: auto auto auto auto;
+      justify-items: start;
+    }
+
     footer button {
       background-color: transparent;
       border: none;
-    }
-    footer button svg {
-      width: var(--size-5);
       color: var(--text-3);
+      font-size: var(--font-size-2);
+      line-height: var(--font-lineheight-00);
+    }
+
+    footer button svg {
+      height: var(--size-5);
+      vertical-align: middle;
+    }
+
+    footer button span {
+      height: var(--size-5);
+      vertical-align: middle;
+    }
+
+    footer button span:empty() {
+      color: red;
     }
 
     /* The account avatar */
@@ -149,44 +226,17 @@ export class StatusCard extends ElmishElement<
       margin-block: 0;
     }
 
-    header svg {
-      width: var(--size-3);
-      justify-self: end;
-      align-self: end;
-      color: var(--text-3);
-      grid-column-start: 1;
-      grid-row-start: 1;
-    }
-
-    span.retooter {
-      font-size: var(--font-size-1);
-      line-height: var(--font-lineheight-0);
-      align-self: end;
-      color: var(--text-3);
-      grid-column-start: 2;
-      grid-row-start: 1;
-    }
-
-    span.tooter {
-      font-size: var(--font-size-3);
-      font-weight: var(--font-weight-4);
-      color: var(--text-1);
-      /* margin-bottom: var(--size-3); */
-      align-self: start;
-      grid-column-start: 2;
-      line-height: var(--font-lineheight-0);
-      min-height: 0;
-    }
-
-    span.retooter + span.tooter {
-      grid-row-start: 2;
-    }
-
-    time {
-      color: var(--text-3);
-      grid-column-start: 3;
-      line-height: var(--font-lineheight-0);
-      align-self: start;
+    /* From tailwindcss but this seems to be common practice */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
     }
   `;
 
@@ -204,6 +254,18 @@ export class StatusCard extends ElmishElement<
     switch (message.type) {
       case "set status":
         return [message.status, command.none];
+      case "comment":
+        console.debug("Favorite toot. Not yet implemented");
+        return [model, command.none];
+      case "retoot":
+        console.debug("Retoot toot. Not yet implemented");
+        return [model, command.none];
+      case "like":
+        console.debug("Like toot. Not yet implemented");
+        return [model, command.none];
+      case "favorite":
+        console.debug("Favorite toot. Not yet implemented");
+        return [model, command.none];
     }
   }
 
@@ -286,7 +348,7 @@ export class StatusCard extends ElmishElement<
           : nothing}
 
         <footer>
-          <button>
+          <button @click=${() => dispatch({ type: "comment" })}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -300,8 +362,13 @@ export class StatusCard extends ElmishElement<
                 d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z"
               />
             </svg>
+            <span class="${status.replies_count === 0 ? "sr-only" : nothing}"
+              >${status.replies_count}<span class="sr-only"
+                >Replies. Click to reply</span
+              ></span
+            >
           </button>
-          <button>
+          <button @click=${() => dispatch({ type: "retoot" })}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -315,8 +382,13 @@ export class StatusCard extends ElmishElement<
                 d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3"
               />
             </svg>
+            <span class="${status.reblogs_count === 0 ? "sr-only" : nothing}"
+              >${status.reblogs_count}<span class="sr-only"
+                >Retoots. Click to retoot</span
+              ></span
+            >
           </button>
-          <button>
+          <button @click=${() => dispatch({ type: "like" })}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -330,8 +402,13 @@ export class StatusCard extends ElmishElement<
                 d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
               />
             </svg>
+
+            <span class="${status.favourites_count === 0 ? "sr-only" : nothing}"
+              >${status.favourites_count}
+              <span class="sr-only">Likes. Click to like</span></span
+            >
           </button>
-          <button>
+          <button @click=${() => dispatch({ type: "favorite" })}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -345,6 +422,7 @@ export class StatusCard extends ElmishElement<
                 d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z"
               />
             </svg>
+            <span class="sr-only">Favorite</span>
           </button>
         </footer>
       </article>
