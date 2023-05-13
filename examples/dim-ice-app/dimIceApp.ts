@@ -2,13 +2,15 @@
 import command from "../../src/elmish/command";
 import { type Command, type Dispatch } from "../../src/elmish/command";
 import { TemplateResult, html, nothing } from "lit-html";
-import { repeat } from "lit-html/directives/repeat.js";
 import ElmishElement from "../../src/elmishComponent";
 import Status from "./api/status";
 import { StatusCard } from "./components/statusCard";
 import { css } from "./styling";
 import MediaAttachmentCollection from "./components/mediaAttachment";
 import "@lit-labs/virtualizer";
+import { LitVirtualizer } from "@lit-labs/virtualizer";
+import type { RangeChangedEvent } from "@lit-labs/virtualizer/events";
+import { UrlString } from "./api/string";
 
 // I know you don't include them in source code normallyn
 // Client credentials can be created on the fly
@@ -62,6 +64,7 @@ type LoadingTimeline = {
 type HomeTimeline = {
   readonly type: "homeTimeline";
   readonly stati: Status[];
+  readonly isLoadingMoreToots: boolean;
 };
 
 /**
@@ -99,8 +102,23 @@ type AppMessage =
     }
   | {
       readonly type: "setStati";
-      readonly stati: Status[];
+      readonly homeTimeline: GetHomeTimelineResponse;
+    }
+  // This occurs when the range of stati rendered to the dom is changed by the lit virtualizer. If we reach the end of
+  // the toots loaded, then we need to trigger loading more
+  | {
+      readonly type: "virtualizer range changed";
+      readonly event: RangeChangedEvent;
     };
+
+type Link = {
+  readonly link: UrlString;
+  readonly relationship: "next" | "prev";
+};
+type GetHomeTimelineResponse = {
+  readonly toots: Status[];
+  readonly links: [Link, Link];
+};
 
 function createInstanceBaseUrl(instance: string) {
   //TODO we should add some verification here because the string can be anything
@@ -168,7 +186,10 @@ async function exchangeCodeForToken(
 }
 
 // Returns the stati posted to the home timeline
-async function getHomeTimeline(instanceBaseUrl: URL, token: AccessToken) {
+async function getHomeTimeline(
+  instanceBaseUrl: URL,
+  token: AccessToken
+): Promise<GetHomeTimelineResponse> {
   const url = new URL("/api/v1/timelines/home", instanceBaseUrl);
 
   //TODO error handling
@@ -178,8 +199,28 @@ async function getHomeTimeline(instanceBaseUrl: URL, token: AccessToken) {
     },
   });
 
+  const link = response.headers.get("Link");
+  const links = link
+    ?.split(",")
+    .map((linkSegment) =>
+      linkSegment.split(";").map((split) => {
+        const trimmed = split.trim();
+        // either <url> or rel="something"
+        const dataStart = trimmed[0] === "<" ? 1 : 5;
+        console.debug({ trimmed });
+        return trimmed.substring(dataStart, trimmed.length - 1);
+      })
+    )
+    .map(
+      ([link, relationship]): Link => ({
+        link,
+        relationship: relationship as "next" | "prev",
+      })
+    ) as [Link, Link];
+  console.debug("Link 🔗 header", links);
+
   //TODO response code error handling
-  return (await response.json()) as Status[];
+  return { links, toots: (await response.json()) as Status[] };
 }
 
 function createErrorUi(error?: AppError): TemplateResult | typeof nothing {
@@ -307,7 +348,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
     const fetchTimelineCommand = command.ofPromise.perform(
       () => getHomeTimeline(instance.baseUrl, token.access_token),
       undefined,
-      (stati): AppMessage => ({ type: "setStati", stati })
+      (stati): AppMessage => ({ type: "setStati", homeTimeline: stati })
     );
     return [
       {
@@ -345,7 +386,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
           () =>
             getHomeTimeline(model.instance.baseUrl, message.token.access_token),
           undefined,
-          (stati): AppMessage => ({ type: "setStati", stati })
+          (stati): AppMessage => ({ type: "setStati", homeTimeline: stati })
         );
 
         // Effect describes side effects which can be put into commands?
@@ -370,11 +411,40 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
         return [
           {
             type: "homeTimeline",
-            stati: message.stati,
+            stati: message.homeTimeline.toots,
             instance: model.instance,
+            isLoadingMoreToots: false,
           },
           command.none,
         ];
+
+      case "virtualizer range changed":
+        const virtualizer = message.event.target as LitVirtualizer;
+
+        console.debug("Virtualizer range changed", {
+          last: message.event.last,
+          first: message.event.first,
+        });
+        if (model.type !== "homeTimeline") {
+          //TODO separate into home time line page component to avoid this invalid state
+          console.error("Separate state, claas");
+          return [model, command.none];
+        }
+
+        if (model.isLoadingMoreToots) {
+          // Already loading more toots don't need to start another one
+          console.debug("The lock 🔒 worked 🙂");
+          return [model, command.none];
+        }
+
+        if (message.event.last !== model.stati.length - 1) {
+          console.debug("The last toot has not been seen! ✋");
+          return [model, command.none];
+        }
+
+        console.debug("Last toot rendered! ⌚️");
+
+        return [{ ...model, isLoadingMoreToots: true }, command.none];
     }
   }
 
@@ -384,7 +454,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
       padding-inline-start: 0;
     }
 
-    ul > * + * {
+    ul lit-virtualizer > * + * {
       border-top: var(--border-size-2) solid var(--surface-2);
     }
 
@@ -430,6 +500,8 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
         return html` <h1>Home Timeline</h1>
           <ul>
             <lit-virtualizer
+              @rangeChanged=${(event: RangeChangedEvent) =>
+                dispatch({ type: "virtualizer range changed", event })}
               .items=${model.stati}
               .renderItem=${(status: Status) =>
                 html`<dim-ice-status-card
