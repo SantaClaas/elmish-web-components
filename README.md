@@ -68,6 +68,7 @@ Performance is not my first concern but important. Much of the code I write is a
 - Improve performance of loading toots (probably image loading and blurhash is taking too long)
 - Update time of post with timer
 - Add "pull to refresh" with scroll snap as seen in Adam Argyle's "Oh Snap!" talk
+- Create our own virtualizer element since we know the sizes of elements to render
 
 <br/>
 

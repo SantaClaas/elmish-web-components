@@ -64,6 +64,7 @@ type LoadingTimeline = {
 type HomeTimeline = {
   readonly type: "homeTimeline";
   readonly stati: Status[];
+  readonly links: PaginationUrls;
   readonly isLoadingMoreToots: boolean;
 };
 
@@ -80,16 +81,16 @@ type Instance = {
 type StaticAppData = {
   instance: Instance;
 };
+
+type Authorized = (LoadingTimeline | HomeTimeline) & {
+  accessToken: AccessToken;
+};
+
+type Unauthorized = FirstOpen | RunningCodeExchange;
 /**
  *  App model represents the different states the app can be in
  */
-type AppModel = (
-  | FirstOpen
-  | RunningCodeExchange
-  | LoadingTimeline
-  | HomeTimeline
-) &
-  StaticAppData;
+type AppModel = (Unauthorized | Authorized) & StaticAppData;
 
 type AppMessage =
   | {
@@ -104,20 +105,34 @@ type AppMessage =
       readonly type: "setStati";
       readonly homeTimeline: GetHomeTimelineResponse;
     }
+  | {
+      readonly type: "append toots";
+      readonly toots: GetHomeTimelineResponse;
+    }
   // This occurs when the range of stati rendered to the dom is changed by the lit virtualizer. If we reach the end of
   // the toots loaded, then we need to trigger loading more
   | {
       readonly type: "virtualizer range changed";
       readonly event: RangeChangedEvent;
     };
+/**
+ * A link that points to the next toots in the home timeline
+ */
+type NextUrl = UrlString;
 
-type Link = {
-  readonly link: UrlString;
-  readonly relationship: "next" | "prev";
+/**
+ * A link that points to the previous toots in the home timeline
+ */
+type PreviousUrl = UrlString;
+
+type PaginationUrls = {
+  next: NextUrl;
+  previous: PreviousUrl;
 };
+
 type GetHomeTimelineResponse = {
   readonly toots: Status[];
-  readonly links: [Link, Link];
+  readonly links: PaginationUrls;
 };
 
 function createInstanceBaseUrl(instance: string) {
@@ -185,25 +200,15 @@ async function exchangeCodeForToken(
   return (await response.json()) as AccessTokenResponse;
 }
 
-// Returns the stati posted to the home timeline
-async function getHomeTimeline(
-  instanceBaseUrl: URL,
-  token: AccessToken
-): Promise<GetHomeTimelineResponse> {
-  const url = new URL("/api/v1/timelines/home", instanceBaseUrl);
-
-  //TODO error handling
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const link = response.headers.get("Link");
-  const links = link
-    ?.split(",")
+/**
+ * Parses the next and previous links from the Link header value
+ * More details: https://docs.joinmastodon.org/api/guidelines/#pagination
+ */
+function parsePaginationLins(link: string): PaginationUrls {
+  const [link1, link2] = link
+    ?.split(", ")
     .map((linkSegment) =>
-      linkSegment.split(";").map((split) => {
+      linkSegment.split("; ").map((split) => {
         const trimmed = split.trim();
         // either <url> or rel="something"
         const dataStart = trimmed[0] === "<" ? 1 : 5;
@@ -211,16 +216,47 @@ async function getHomeTimeline(
         return trimmed.substring(dataStart, trimmed.length - 1);
       })
     )
-    .map(
-      ([link, relationship]): Link => ({
-        link,
-        relationship: relationship as "next" | "prev",
-      })
-    ) as [Link, Link];
+    .map(([link, relationship]) => ({
+      link,
+      relationship: relationship as "next" | "prev",
+    }));
+
+  // Assume "prev" and "next" exist always and only they exist
+  if (link1.relationship === "prev") {
+    return { next: link2.link, previous: link1.link };
+  }
+
+  return { next: link1.link, previous: link2.link };
+}
+
+async function fetchTootsFromUrl(
+  url: URL | string,
+  token: AccessToken
+): Promise<GetHomeTimelineResponse> {
+  //TODO error handling
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const linkHeader = response.headers.get("Link");
+  // Assume they always exist
+  const links = parsePaginationLins(linkHeader!);
+
   console.debug("Link 🔗 header", links);
 
   //TODO response code error handling
   return { links, toots: (await response.json()) as Status[] };
+}
+// Returns the stati posted to the home timeline
+async function getHomeTimeline(
+  instanceBaseUrl: URL,
+  token: AccessToken
+): Promise<GetHomeTimelineResponse> {
+  const url = new URL("/api/v1/timelines/home", instanceBaseUrl);
+
+  return await fetchTootsFromUrl(url, token);
 }
 
 function createErrorUi(error?: AppError): TemplateResult | typeof nothing {
@@ -355,6 +391,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
         type: "loadingTimeline",
         token: token,
         instance: instance,
+        accessToken: token.access_token,
       },
       fetchTimelineCommand,
     ];
@@ -404,23 +441,30 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
             type: "loadingTimeline",
             token: message.token,
             instance: model.instance,
+            accessToken: message.token.access_token,
           },
           commands,
         ];
       case "setStati":
+        //TODO this should change when we swap to home page with its own model
+        if (model.type !== "loadingTimeline") {
+          console.error("Can't set toots if wasn't loading them before");
+          return [model, command.none];
+        }
+
         return [
           {
             type: "homeTimeline",
             stati: message.homeTimeline.toots,
+            links: message.homeTimeline.links,
             instance: model.instance,
             isLoadingMoreToots: false,
+            accessToken: model.accessToken,
           },
           command.none,
         ];
 
       case "virtualizer range changed":
-        const virtualizer = message.event.target as LitVirtualizer;
-
         console.debug("Virtualizer range changed", {
           last: message.event.last,
           first: message.event.first,
@@ -443,8 +487,31 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
         }
 
         console.debug("Last toot rendered! ⌚️");
+        console.debug("Getting nex toots from ", model.links.next);
+        //TODO error handling
+        const fetchNextTootsCommand = command.ofPromise.perform(
+          () => fetchTootsFromUrl(model.links.next, model.accessToken),
+          undefined,
+          (toots): AppMessage => ({ type: "append toots", toots })
+        );
+        return [{ ...model, isLoadingMoreToots: true }, fetchNextTootsCommand];
+      case "append toots":
+        if (model.type !== "homeTimeline") {
+          //TODO separate into home time line page component to avoid this invalid state
+          console.error("Separate state again, claas");
+          return [model, command.none];
+        }
 
-        return [{ ...model, isLoadingMoreToots: true }, command.none];
+        return [
+          {
+            ...model,
+            isLoadingMoreToots: false,
+            links: message.toots.links,
+            // I tried push but lit virtualizer does not seem to update if it is the same array
+            stati: [...model.stati, ...message.toots.toots],
+          },
+          command.none,
+        ];
     }
   }
 
@@ -465,6 +532,10 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
          But padding and other styles only apply to a small rectangle
        */
       display: block;
+    }
+
+    h1 {
+      padding-inline-start: var(--size-2);
     }
   `;
 
