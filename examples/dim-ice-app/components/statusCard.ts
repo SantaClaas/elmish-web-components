@@ -164,6 +164,7 @@ export class StatusCard extends ElmishElement<
 
     section {
       grid-area: 2 / content-start / content-end / content-end;
+      font-size: var(--font-size-2);
     }
 
     /* Fix links in toots overflowing */
@@ -188,7 +189,7 @@ export class StatusCard extends ElmishElement<
       background-color: transparent;
       border: none;
       color: var(--text-3);
-      font-size: var(--font-size-2);
+      font-size: var(--font-size-1);
       line-height: var(--font-lineheight-00);
     }
 
@@ -198,7 +199,6 @@ export class StatusCard extends ElmishElement<
     }
 
     footer button span {
-      height: var(--size-5);
       vertical-align: middle;
     }
 
