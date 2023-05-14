@@ -62,9 +62,12 @@ function mediaAttachment(
         <source
           src="${attachment.url}"
           media="min-width: ${attachment.meta.small.width}"
-          width="${attachment.meta.original.width}"
+          width="${attachment.meta.small.width}"
+          height="${attachment.meta.small.height}"
         />
         <img
+          width="${attachment.meta.original.width}"
+          height="${attachment.meta.original.height}"
           loading="lazy"
           srcset="${sourceSet}"
           alt="${attachment.description}"
@@ -90,6 +93,7 @@ export default class MediaAttachmentCollection extends ElmishElement<
     img,
     video {
       width: 100%;
+      height: 100%;
       border-radius: var(--radius-2);
     }
   `;
