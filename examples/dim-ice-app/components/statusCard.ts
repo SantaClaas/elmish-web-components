@@ -52,6 +52,7 @@ export class StatusCard extends ElmishElement<
       /* --grid-gap: 0; */
       --half-avatar-width: calc(var(--avatar-width) / 2);
       display: block;
+      width: 100%;
       --brand-0: var(--color-0);
       --brand-1: var(--color-1);
       --brand-2: var(--color-2);
