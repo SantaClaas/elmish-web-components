@@ -8,14 +8,12 @@ import { StatusCard } from "./components/statusCard";
 import { css } from "./styling";
 import MediaAttachmentCollection from "./components/mediaAttachment";
 import "@lit-labs/virtualizer";
-import { LitVirtualizer } from "@lit-labs/virtualizer";
 import type { RangeChangedEvent } from "@lit-labs/virtualizer/events";
 import { UrlString } from "./api/string";
-
-// I know you don't include them in source code normallyn
-// Client credentials can be created on the fly
-const clientSecret = "51Nwi4I83gxxgsqfPWZQLALHlIJgEjlIIh9o_Zdvh10";
-const clientId = "NgtasltAXdbQgao8vU5H1pTLEBX1EGvuNThYYpUhoxA";
+import CreateAppRequest from "./api/apps/createAppRequest";
+import Application from "./api/apps/application";
+import VerifiedApplication from "./api/apps/verifiedApplication";
+import VerifiyCredentialsError from "./api/apps/verificationError";
 
 // Current location. Should not change while page is active
 // Redirect url needs to be registered with app on mastodon.social
@@ -24,9 +22,23 @@ const redirectUri = new URL("/redirect", location.href);
 // These types use tagged unions to emulate unions from F# or other more functional programming languages
 type FirstOpen = {
   readonly type: "firstOpen";
-  readonly authorizationUrl: URL;
   readonly error?: AppError;
 };
+
+/**
+ * Represents the state when the user was signed in at one point so that we already have app credentials but the users
+ * access token is not valid (e.g. the token life time expired)
+ */
+type ReauthorizationRequired = {
+  readonly type: "authorization required";
+} & WithAppCredentials;
+
+/**
+ * Represents the state the app is in after existing access token was loaded
+ */
+type VerifyingCredentials = {
+  readonly type: "verifying credentials";
+} & WithAppCredentials;
 
 /**
  * Represents the errors that can occur. They are strings but can be complex objects if more information is required
@@ -43,11 +55,18 @@ type AppError =
    */
   | "outdatedBrowser";
 
+type CreatingApp = {
+  readonly type: "creating app";
+};
 /**
  * Represents the state when the app was openend after a redirect from the authorization code flow
  */
 type RunningCodeExchange = {
   readonly type: "codeExchange";
+} & WithAppCredentials;
+
+type WithAppCredentials = {
+  app: Application;
 };
 
 /**
@@ -55,7 +74,6 @@ type RunningCodeExchange = {
  */
 type LoadingTimeline = {
   readonly type: "loadingTimeline";
-  readonly token: AccessTokenResponse;
 };
 
 /**
@@ -84,9 +102,14 @@ type StaticAppData = {
 
 type Authorized = (LoadingTimeline | HomeTimeline) & {
   accessToken: AccessToken;
-};
+} & WithAppCredentials;
 
-type Unauthorized = FirstOpen | RunningCodeExchange;
+type Unauthorized =
+  | FirstOpen
+  | CreatingApp
+  | ReauthorizationRequired
+  | RunningCodeExchange
+  | VerifyingCredentials;
 /**
  *  App model represents the different states the app can be in
  */
@@ -94,15 +117,36 @@ type AppModel = (Unauthorized | Authorized) & StaticAppData;
 
 type AppMessage =
   | {
-      readonly type: "setInstance";
+      readonly type: "set instance";
       readonly instance: string;
+    }
+  | {
+      readonly type: "create app";
+    }
+  | {
+      readonly type: "set app credentials";
+      readonly app: Application;
+    }
+  | {
+      readonly type: "navigate to authorization page";
+    }
+  | {
+      // When the access token is loaded and needs to be verified
+      // If not valid then we need to reauthorize
+      readonly type: "verify credentials";
+      readonly accessToken: AccessToken;
     }
   | {
       readonly type: "setAccessToken";
       readonly token: AccessTokenResponse;
     }
+  | { readonly type: "sign out" }
   | {
-      readonly type: "setStati";
+      readonly type: "load home timeline";
+      readonly token: AccessToken;
+    }
+  | {
+      readonly type: "set toots";
       readonly homeTimeline: GetHomeTimelineResponse;
     }
   | {
@@ -139,7 +183,7 @@ function createInstanceBaseUrl(instance: string) {
   //TODO we should add some verification here because the string can be anything
   return new URL(`https://${instance}/`);
 }
-function createAuthorizationUrl(instanceBaseUrl: URL) {
+function createAuthorizationUrl(instanceBaseUrl: URL, clientId: string) {
   const authorizationUrl = new URL("/oauth/authorize", instanceBaseUrl);
   authorizationUrl.searchParams.set("client_id", clientId);
   authorizationUrl.searchParams.set("scope", "read");
@@ -174,7 +218,9 @@ type AccessTokenResponse = {
 
 async function exchangeCodeForToken(
   instanceBaseUrl: URL,
-  authorizationCode: string
+  authorizationCode: string,
+  clientId: string,
+  clientSecret: string
 ): Promise<AccessTokenResponse> {
   const url = new URL("/oauth/token", instanceBaseUrl);
   const content: AccessTokenRequest = {
@@ -280,6 +326,69 @@ function createErrorUi(error?: AppError): TemplateResult | typeof nothing {
   }
 }
 
+async function createApp(instanceBaseUrl: URL): Promise<Application> {
+  const url = new URL("/api/v1/apps", instanceBaseUrl);
+
+  const content: CreateAppRequest = {
+    client_name: "dim ice 🧊",
+    redirect_uris: redirectUri.toString(),
+    scopes: "read",
+    website: location.origin,
+  };
+
+  //TODO error handling
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(content),
+  });
+
+  return (await response.json()) as Application;
+}
+
+async function verifyCredentials(
+  instanceBaseUrl: URL,
+  accessToken: AccessToken
+): Promise<VerifiedApplication | VerifiyCredentialsError> {
+  const url = new URL("/api/v1/apps/verify_credentials", instanceBaseUrl);
+
+  //TODO error handling
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (response.ok) return (await response.json()) as VerifiedApplication;
+
+  if (response.status === 401)
+    return (await response.json()) as VerifiyCredentialsError;
+
+  throw new Error("Unexpected status code");
+}
+
+async function revokeToken(
+  instanceBaseUrl: URL,
+  token: AccessToken,
+  clientId: string,
+  clientSecret: string
+) {
+  const revokeUrl = new URL("/oauth/revoke", instanceBaseUrl);
+
+  const data: FormData = new FormData();
+  data.append("client_id", clientId);
+  data.append("client_secret", clientSecret);
+  data.append("token", token);
+
+  await fetch(revokeUrl, {
+    method: "POST",
+    mode: "no-cors",
+    body: data,
+  });
+}
+
 const accessTokenStorageKey = "dim ice access token";
 function tryLoadAccessToken(): AccessTokenResponse | undefined {
   //TODO better differentiate errrors
@@ -304,6 +413,76 @@ function saveAccessToken(token: AccessTokenResponse) {
   const value = JSON.stringify(token);
   localStorage.setItem(accessTokenStorageKey, value);
 }
+const appCredentialsStorageKey = "dim ice app credentials";
+function tryLoadAppCredentials(): Application | undefined {
+  //TODO better differentiate errrors
+  // We don't have persistent storage in incognito windows
+  if (!("localStorage" in window)) return undefined;
+
+  const value = localStorage.getItem(appCredentialsStorageKey);
+  if (value === null) return undefined;
+
+  //TODO error handling
+  return JSON.parse(value) as Application;
+}
+
+function saveAppCredentials(app: Application) {
+  //TODO better differentiate errrors
+  // We don't have persistent storage in incognito windows
+  if (!("localStorage" in window)) return;
+
+  const value = JSON.stringify(app);
+  localStorage.setItem(appCredentialsStorageKey, value);
+}
+
+function startCodeExchange(
+  instance: Instance,
+  app: Application
+): [AppModel, Command<AppMessage>] {
+  // Get code from url
+  const currentLocation = new URL(location.href);
+  const code = currentLocation.searchParams.get("code");
+  // Remove code from url so we don't trigger another exchange accidentally
+  currentLocation.searchParams.delete("code");
+  // Reset path
+  currentLocation.pathname = "";
+
+  //TODO consider moving side effects into commands
+  //TODO use new navigation api in chromium and fallback to old and crufty history
+  history.replaceState({}, "", currentLocation.href);
+  if (code === null) {
+    // This is an error. We got navigated to redirect but did not get a code passed as query parameter
+    // Though this is an expectable error as users can just open the app with "/redirect"
+    // and very likely don't pass a valid authorization code in the query
+    // There are many other reasons we can end up in this stateW
+
+    return [
+      {
+        type: "firstOpen",
+        error: "noCodeRedirect",
+        instance,
+      },
+      command.none,
+    ];
+  }
+
+  // Start async code exchange command (side effect)
+  //TODO develop alternative functions that use function.apply with an arguments array.
+  //TODO error handling
+  // I just need to find out how to type this in TS
+  // That way I can shorten the signature maybe, is this good?
+  const exchangeCommand = command.ofPromise.perform(
+    ({ base, code }) =>
+      exchangeCodeForToken(base, code, app.client_id, app.client_secret),
+    { base: instance.baseUrl, code },
+    (token: AccessTokenResponse): AppMessage => ({
+      type: "setAccessToken",
+      token,
+    })
+  );
+
+  return [{ type: "codeExchange", instance, app }, exchangeCommand];
+}
 
 class DimIceApp extends ElmishElement<AppModel, AppMessage> {
   initialize(): [AppModel, Command<AppMessage>] {
@@ -314,86 +493,44 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
       baseUrl: createInstanceBaseUrl(defaultInstance),
     };
 
-    const authorizationUrl = createAuthorizationUrl(instance.baseUrl);
-    // Check if we are in authorization code flow
-    // This takes precedence before trying to load an existing access token in case the user wants to authorize with
-    // a different instance
-    if (location.pathname === "/redirect") {
-      // Get code from url
-      const currentLocation = new URL(location.href);
-      const code = currentLocation.searchParams.get("code");
-      // Remove code from url so we don't trigger another exchange accidentally
-      currentLocation.searchParams.delete("code");
-      // Reset path
-      currentLocation.pathname = "";
-
-      //TODO consider moving side effects into commands
-      //TODO use new navigation api in chromium and fallback to old and crufty history
-      history.replaceState({}, "", currentLocation.href);
-      if (code === null) {
-        // This is an error. We got navigated to redirect but did not get a code passed as query parameter
-        // Though this is an expectable error as users can just open the app with "/redirect"
-        // and very likely don't pass a valid authorization code in the query
-        // There are many other reasons we can end up in this stateW
-
-        return [
-          {
-            type: "firstOpen",
-            authorizationUrl,
-            error: "noCodeRedirect",
-            instance,
-          },
-          command.none,
-        ];
-      }
-
-      // Start async code exchange command (side effect)
-      //TODO develop alternative functions that use function.apply with an arguments array.
-      //TODO error handling
-      // I just need to find out how to type this in TS
-      // That way I can shorten the signature maybe, is this good?
-      const exchangeCommand = command.ofPromise.perform(
-        ({ base, code }) => exchangeCodeForToken(base, code),
-        { base: instance.baseUrl, code },
-        (token: AccessTokenResponse): AppMessage => ({
-          type: "setAccessToken",
-          token,
-        })
-      );
-
-      return [{ type: "codeExchange", instance }, exchangeCommand];
-    }
-    // Try to load existing access token
-    const token = tryLoadAccessToken();
-    if (token === undefined)
+    // Try load app credentials, if we don't have app credentials we need to start onboarding again
+    const app = tryLoadAppCredentials();
+    if (app === undefined)
       return [
         {
           type: "firstOpen",
-          authorizationUrl,
           instance,
         },
         command.none,
       ];
 
-    //TODO should I set the token with the command to not duplicate code in update method or should it be duplicate
-    // and set directly to loading timeline. I could just write a function to not duplicate.
-    // const setCommand = command.ofMessage<AppMessage>({
-    //   type: "setAccessToken",
-    //   token,
-    // });
-    const fetchTimelineCommand = command.ofPromise.perform(
-      () => getHomeTimeline(instance.baseUrl, token.access_token),
-      undefined,
-      (stati): AppMessage => ({ type: "setStati", homeTimeline: stati })
-    );
+    // Check if we are in authorization code flow
+    // This takes precedence before trying to load an existing access token in case the user wants to authorize with
+    // a different instance
+    if (location.pathname === "/redirect")
+      return startCodeExchange(instance, app);
+
+    // Try to load existing access token
+    const token = tryLoadAccessToken();
+    if (token === undefined)
+      return [
+        {
+          type: "authorization required",
+          app,
+          instance,
+        },
+        command.none,
+      ];
+
+    const verifyCredentialsCommand = command.ofMessage<AppMessage>({
+      type: "verify credentials",
+      accessToken: token.access_token,
+    });
+
     return [
-      {
-        type: "loadingTimeline",
-        token: token,
-        instance: instance,
-        accessToken: token.access_token,
-      },
-      fetchTimelineCommand,
+      { type: "verifying credentials", instance, app },
+      verifyCredentialsCommand,
+      // command.none,
     ];
   }
 
@@ -403,49 +540,152 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
   ): [AppModel, Command<AppMessage>] {
     //TODO split up in landing page and home page
     switch (message.type) {
-      case "setInstance":
+      case "set instance":
         const instanceBaseUrl = createInstanceBaseUrl(message.instance);
-        const authorizationUrl = createAuthorizationUrl(instanceBaseUrl);
+
         // Yes this allocates a new object but I prefer immutability.
         // Might consider changing when measurable disadvantage exists
         return [
           {
             type: "firstOpen",
-            authorizationUrl,
-            instance: model.instance,
+            instance: { baseUrl: instanceBaseUrl },
           },
           command.none,
         ];
-
-      case "setAccessToken":
-        //TODO error handling
-        const fetchTimelineCommand = command.ofPromise.perform(
-          () =>
-            getHomeTimeline(model.instance.baseUrl, message.token.access_token),
+      case "create app":
+        // Create application on instance
+        const createAppCommand = command.ofPromise.perform(
+          () => createApp(model.instance.baseUrl),
           undefined,
-          (stati): AppMessage => ({ type: "setStati", homeTimeline: stati })
+          (app): AppMessage => ({ type: "set app credentials", app })
+        );
+        return [
+          { type: "creating app", instance: model.instance },
+          createAppCommand,
+        ];
+
+      // App credentials are set once during the onboarding flow
+      case "set app credentials":
+        // Save to local storage
+        const persistCredentialsCommand = command.ofFunction.perform(
+          saveAppCredentials,
+          message.app,
+          (): AppMessage => ({ type: "navigate to authorization page" })
+        );
+        console.debug({ model });
+        return [
+          { type: "codeExchange", app: message.app, instance: model.instance },
+          persistCredentialsCommand,
+        ];
+
+      // We can get here after an app has been created or an app already exists but reauthorization is required
+      case "navigate to authorization page":
+        if (!("app" in model)) {
+          console.error("Invalid state, expected to have app");
+          return [
+            { type: "firstOpen", instance: model.instance },
+            command.none,
+          ];
+        }
+        const authorizationUrl = createAuthorizationUrl(
+          model.instance.baseUrl,
+          model.app.client_id
         );
 
-        // Effect describes side effects which can be put into commands?
-        const persistTokenCommand = command.ofEffect<AppMessage>(() =>
-          saveAccessToken(message.token)
-        );
+        console.debug("Navigating to authorization page", authorizationUrl);
 
-        const commands = command.batch([
-          fetchTimelineCommand,
-          persistTokenCommand,
-        ]);
+        // Could consider starting termination to gracefully shut down running processes but at this point there
+        // shouldn't be any
+        const navigateCommand = command.ofEffect<AppMessage>(() =>
+          globalThis.location.assign(authorizationUrl)
+        );
+        return [model, navigateCommand];
+
+      case "verify credentials":
+        if (!("app" in model)) {
+          console.error("Invalid state, expected to have app");
+          return [
+            { type: "firstOpen", instance: model.instance },
+            command.none,
+          ];
+        }
+
+        const verifyCommand = command.ofPromise.perform(
+          () => verifyCredentials(model.instance.baseUrl, message.accessToken),
+          undefined,
+          (result): AppMessage => {
+            if ("error" in result)
+              return { type: "navigate to authorization page" };
+
+            return { type: "load home timeline", token: message.accessToken };
+          }
+        );
 
         return [
           {
-            type: "loadingTimeline",
-            token: message.token,
+            type: "verifying credentials",
+            app: model.app,
             instance: model.instance,
-            accessToken: message.token.access_token,
           },
-          commands,
+          verifyCommand,
         ];
-      case "setStati":
+
+      // Exchange credentials for access token
+      case "setAccessToken":
+        // Effect describes side effects which can be put into commands?
+        const persistTokenCommand = command.ofFunction.perform(
+          saveAccessToken,
+          message.token,
+          (): AppMessage => ({
+            type: "load home timeline",
+            token: message.token.access_token,
+          })
+        );
+
+        return [model, persistTokenCommand];
+      case "sign out":
+        if (model.type !== "homeTimeline") {
+          console.error("Can not sign out if not on home time line");
+          return [model, command.none];
+        }
+
+        const revokeTokenCommand = command.ofEffect<AppMessage>(() =>
+          revokeToken(
+            model.instance.baseUrl,
+            model.accessToken,
+            model.app.client_id,
+            model.app.client_secret
+          )
+        );
+
+        return [
+          { type: "firstOpen", instance: model.instance },
+          revokeTokenCommand,
+        ];
+
+      case "load home timeline":
+        if (!("app" in model)) {
+          console.error("Expected to have app at this point", { model });
+          return [model, command.none];
+        }
+
+        //TODO error handling
+        const fetchTimelineCommand = command.ofPromise.perform(
+          () => getHomeTimeline(model.instance.baseUrl, message.token),
+          undefined,
+          (stati): AppMessage => ({ type: "set toots", homeTimeline: stati })
+        );
+        return [
+          {
+            type: "loadingTimeline",
+            accessToken: message.token,
+            app: model.app,
+            instance: model.instance,
+          },
+          fetchTimelineCommand,
+        ];
+
+      case "set toots":
         //TODO this should change when we swap to home page with its own model
         if (model.type !== "loadingTimeline") {
           console.error("Can't set toots if wasn't loading them before");
@@ -460,6 +700,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
             instance: model.instance,
             isLoadingMoreToots: false,
             accessToken: model.accessToken,
+            app: model.app,
           },
           command.none,
         ];
@@ -546,41 +787,68 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
         //TODO improve this short lived UI to be more user friendly and less technical terms
         return html`<section>Exchaning token...</section>`;
 
+      case "creating app":
+        return html`Creating App...`;
+      case "authorization required":
+        return html`<h1>Dim Ice</h1>
+          <form @submit=${dispatch({ type: "navigate to authorization page" })}>
+            <input
+              value="${model.instance.baseUrl.hostname}"
+              id="instance"
+              disabled
+            />
+            <button type="submit">Authorize</button>
+          </form>`;
       case "firstOpen":
         const errorNotification = createErrorUi(model.error);
         // Using instance.hostname instead of host which would include the port (if specified)
         // The assumption is that instances run on https default port 443 all the time
         // This assumption should make selection of instance easier
-        return html`<h1>Dim Ice</h1>
-          ${errorNotification}
-          <input
-            value="${model.instance.baseUrl.hostname}"
-            id="instance"
-            @change="${(event: Event) =>
-              dispatch({
-                type: "setInstance",
-                instance: (event.target as HTMLInputElement).value,
-              })}"
-          />
-          <a href="${model.authorizationUrl.href}">Authorize</a>`;
+        return html`<h1>Dim Ice Create App</h1>
+          <form
+            @submit=${(event: SubmitEvent) => {
+              dispatch({ type: "create app" });
+              event.preventDefault();
+            }}
+          >
+            ${errorNotification}
+            <input
+              value="${model.instance.baseUrl.hostname}"
+              id="instance"
+              @change="${(event: Event) =>
+                dispatch({
+                  type: "set instance",
+                  instance: (event.target as HTMLInputElement).value,
+                })}"
+            />
+            <button type="submit">Authorize</button>
+          </form>`;
 
+      case "verifying credentials":
+        return html`Verifying credentials`;
       case "loadingTimeline":
         return html`<section>Loading toots...</section>`;
-
       case "homeTimeline":
-        return html` <h1>Home Timeline</h1>
-          <ul>
-            <lit-virtualizer
-              @rangeChanged=${(event: RangeChangedEvent) =>
-                dispatch({ type: "virtualizer range changed", event })}
-              .items=${model.stati}
-              .renderItem=${(status: Status) =>
-                html`<dim-ice-status-card
-                  .status=${status}
-                ></dim-ice-status-card>`}
-            >
-            </lit-virtualizer>
-          </ul>`;
+        return html` <header>
+          <h1>Home Timeline</h1>
+          <button @click=${() => dispatch({ type: "sign out" })}>
+            Sign out
+          </button>
+          <header>
+            <ul>
+              <lit-virtualizer
+                @rangeChanged=${(event: RangeChangedEvent) =>
+                  dispatch({ type: "virtualizer range changed", event })}
+                .items=${model.stati}
+                .renderItem=${(status: Status) =>
+                  html`<dim-ice-status-card
+                    .status=${status}
+                  ></dim-ice-status-card>`}
+              >
+              </lit-virtualizer>
+            </ul>
+          </header>
+        </header>`;
     }
   }
 }
