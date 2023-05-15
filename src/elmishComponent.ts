@@ -188,6 +188,8 @@ export default abstract class ElmishElement<
   constructor() {
     super();
 
+    // Need to have shadow root initialized before first commands run
+    this.#shadowRoot = this.attachShadow({ mode: "open" });
     this.#isTerminated = false;
     const [initialModal, initialCommands] = this.initialize();
     this.#currentModel = initialModal;
@@ -210,8 +212,6 @@ export default abstract class ElmishElement<
       this.dispatch,
       difference
     );
-
-    this.#shadowRoot = this.attachShadow({ mode: "open" });
 
     // Set styles as soon as styles are generated
     (this.constructor as typeof ElmishElement).styles?.then((sheet) =>
