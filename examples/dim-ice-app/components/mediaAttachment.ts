@@ -37,21 +37,18 @@ function mediaAttachment(
   switch (attachment.type) {
     case "gifv":
     case "video":
-      return html`${attachment.description}<video
-          src="${attachment.url}"
-          controls
-        ></video>`;
+      return html`<video src="${attachment.url}" controls></video>`;
     case "image":
       // The information I found around the meta data is very spotty
       if (
         attachment.meta.original === undefined ||
         attachment.meta.small === undefined
       )
-        return html`${attachment.description}<img
-            loading="lazy"
-            src="${attachment.url}"
-            alt="${attachment.description}"
-          />`;
+        return html`<img
+          loading="lazy"
+          src="${attachment.url}"
+          alt="${attachment.description}"
+        />`;
 
       // Construct srcset attribute value string
       // I assume the "small" in the meta data refers to the preview_url and the "original" to the url. I checked it but it might not be guaranteed.
