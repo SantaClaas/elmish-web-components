@@ -1,4 +1,6 @@
-import Iso8601DateTimeString, { Iso8601DateString } from "../iso8601DateTime";
+import Iso8601DateTimeString, {
+  Iso8601DateString,
+} from "../../iso8601DateTime";
 import CustomEmoji from "./customEmoji";
 import { UnsafeHtmlString, UrlString } from "./string";
 

@@ -1,5 +1,5 @@
 import { TemplateResult, html } from "lit-html";
-import Account from "../api/account";
+import Account from "../api/models/account";
 
 /**
  * If the name does not end with 's' it appends and 's, else just a '

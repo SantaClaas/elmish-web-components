@@ -39,3 +39,8 @@ export type ResolutionString = `${number}x${number}`;
  * See more at: https://blurha.sh
  */
 export type BlurHash = string;
+
+/**
+ * Represents an OAuth access token string
+ */
+export type AccessToken = string;

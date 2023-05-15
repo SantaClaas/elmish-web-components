@@ -3,17 +3,24 @@ import command from "../../src/elmish/command";
 import { type Command, type Dispatch } from "../../src/elmish/command";
 import { TemplateResult, html, nothing } from "lit-html";
 import ElmishElement from "../../src/elmishComponent";
-import Status from "./api/status";
+import Status from "./api/models/status";
 import { StatusCard } from "./components/statusCard";
 import { css } from "./styling";
 import MediaAttachmentCollection from "./components/mediaAttachment";
 import "@lit-labs/virtualizer";
 import type { RangeChangedEvent } from "@lit-labs/virtualizer/events";
-import { UrlString } from "./api/string";
-import CreateAppRequest from "./api/apps/createAppRequest";
-import Application from "./api/apps/application";
-import VerifiedApplication from "./api/apps/verifiedApplication";
-import VerifiyCredentialsError from "./api/apps/verificationError";
+import { AccessToken } from "./api/models/string";
+import Application from "./api/models/apps/application";
+import AccessTokenResponse from "./api/models/oauth/accessTokenResponse";
+import {
+  tryLoadAppCredentials,
+  tryLoadAccessToken,
+  saveAppCredentials,
+  saveAccessToken,
+} from "./localStorage";
+import GetHomeTimelineResponse from "./api/models/getHomeTimelineResponse";
+import PaginationUrls from "./api/paginationUrls";
+import api from "./api/api";
 
 // Current location. Should not change while page is active
 // Redirect url needs to be registered with app on mastodon.social
@@ -159,30 +166,12 @@ type AppMessage =
       readonly type: "virtualizer range changed";
       readonly event: RangeChangedEvent;
     };
-/**
- * A link that points to the next toots in the home timeline
- */
-type NextUrl = UrlString;
-
-/**
- * A link that points to the previous toots in the home timeline
- */
-type PreviousUrl = UrlString;
-
-type PaginationUrls = {
-  next: NextUrl;
-  previous: PreviousUrl;
-};
-
-type GetHomeTimelineResponse = {
-  readonly toots: Status[];
-  readonly links: PaginationUrls;
-};
 
 function createInstanceBaseUrl(instance: string) {
   //TODO we should add some verification here because the string can be anything
   return new URL(`https://${instance}/`);
 }
+
 function createAuthorizationUrl(instanceBaseUrl: URL, clientId: string) {
   const authorizationUrl = new URL("/oauth/authorize", instanceBaseUrl);
   authorizationUrl.searchParams.set("client_id", clientId);
@@ -195,114 +184,6 @@ function createAuthorizationUrl(instanceBaseUrl: URL, clientId: string) {
   authorizationUrl.searchParams.set("response_type", "code");
 
   return authorizationUrl;
-}
-
-type AccessTokenRequest = {
-  client_id: string;
-  client_secret: string;
-  redirect_uri: URL;
-  grant_type: "authorization_code";
-  code: string;
-  scope: "read";
-};
-
-type AccessToken = string;
-type Scope = string;
-type UnixTimestampInSeconds = number;
-type AccessTokenResponse = {
-  access_token: AccessToken;
-  token_type: "Bearer";
-  scope: Scope;
-  create_at: UnixTimestampInSeconds;
-};
-
-async function exchangeCodeForToken(
-  instanceBaseUrl: URL,
-  authorizationCode: string,
-  clientId: string,
-  clientSecret: string
-): Promise<AccessTokenResponse> {
-  const url = new URL("/oauth/token", instanceBaseUrl);
-  const content: AccessTokenRequest = {
-    client_id: clientId,
-    client_secret: clientSecret,
-    redirect_uri: redirectUri,
-    grant_type: "authorization_code",
-    code: authorizationCode,
-    scope: "read",
-  };
-
-  //TODO error handling e.g. when we are offline or server refuses to respond
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(content),
-  });
-
-  //TODO handle error response from server e.g. 4xx or 5xx codes
-  return (await response.json()) as AccessTokenResponse;
-}
-
-/**
- * Parses the next and previous links from the Link header value
- * More details: https://docs.joinmastodon.org/api/guidelines/#pagination
- */
-function parsePaginationLins(link: string): PaginationUrls {
-  const [link1, link2] = link
-    ?.split(", ")
-    .map((linkSegment) =>
-      linkSegment.split("; ").map((split) => {
-        const trimmed = split.trim();
-        // either <url> or rel="something"
-        const dataStart = trimmed[0] === "<" ? 1 : 5;
-        console.debug({ trimmed });
-        return trimmed.substring(dataStart, trimmed.length - 1);
-      })
-    )
-    .map(([link, relationship]) => ({
-      link,
-      relationship: relationship as "next" | "prev",
-    }));
-
-  // Assume "prev" and "next" exist always and only they exist
-  if (link1.relationship === "prev") {
-    return { next: link2.link, previous: link1.link };
-  }
-
-  return { next: link1.link, previous: link2.link };
-}
-
-async function fetchTootsFromUrl(
-  url: URL | string,
-  token: AccessToken
-): Promise<GetHomeTimelineResponse> {
-  //TODO error handling
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const linkHeader = response.headers.get("Link");
-  // Assume they always exist
-  const links = parsePaginationLins(linkHeader!);
-
-  console.debug("Link 🔗 header", links);
-
-  //TODO response code error handling
-  return { links, toots: (await response.json()) as Status[] };
-}
-// Returns the stati posted to the home timeline
-async function getHomeTimeline(
-  instanceBaseUrl: URL,
-  token: AccessToken
-): Promise<GetHomeTimelineResponse> {
-  const url = new URL("/api/v1/timelines/home", instanceBaseUrl);
-
-  return await fetchTootsFromUrl(url, token);
 }
 
 function createErrorUi(error?: AppError): TemplateResult | typeof nothing {
@@ -324,115 +205,6 @@ function createErrorUi(error?: AppError): TemplateResult | typeof nothing {
     case undefined:
       return nothing;
   }
-}
-
-async function createApp(instanceBaseUrl: URL): Promise<Application> {
-  const url = new URL("/api/v1/apps", instanceBaseUrl);
-
-  const content: CreateAppRequest = {
-    client_name: "dim ice 🧊",
-    redirect_uris: redirectUri.toString(),
-    scopes: "read",
-    website: location.origin,
-  };
-
-  //TODO error handling
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(content),
-  });
-
-  return (await response.json()) as Application;
-}
-
-async function verifyCredentials(
-  instanceBaseUrl: URL,
-  accessToken: AccessToken
-): Promise<VerifiedApplication | VerifiyCredentialsError> {
-  const url = new URL("/api/v1/apps/verify_credentials", instanceBaseUrl);
-
-  //TODO error handling
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  if (response.ok) return (await response.json()) as VerifiedApplication;
-
-  if (response.status === 401)
-    return (await response.json()) as VerifiyCredentialsError;
-
-  throw new Error("Unexpected status code");
-}
-
-async function revokeToken(
-  instanceBaseUrl: URL,
-  token: AccessToken,
-  clientId: string,
-  clientSecret: string
-) {
-  const revokeUrl = new URL("/oauth/revoke", instanceBaseUrl);
-
-  const data: FormData = new FormData();
-  data.append("client_id", clientId);
-  data.append("client_secret", clientSecret);
-  data.append("token", token);
-
-  await fetch(revokeUrl, {
-    method: "POST",
-    mode: "no-cors",
-    body: data,
-  });
-}
-
-const accessTokenStorageKey = "dim ice access token";
-function tryLoadAccessToken(): AccessTokenResponse | undefined {
-  //TODO better differentiate errrors
-  // We don't have persistent storage in incognito windows
-  if (!("localStorage" in window)) return undefined;
-
-  const value = localStorage.getItem(accessTokenStorageKey);
-  if (value === null) return undefined;
-
-  //TODO error handling
-  return JSON.parse(value);
-}
-
-/**
- * Saves the access token to local storage
- */
-function saveAccessToken(token: AccessTokenResponse) {
-  //TODO better differentiate errrors
-  // We don't have persistent storage in incognito windows
-  if (!("localStorage" in window)) return;
-
-  const value = JSON.stringify(token);
-  localStorage.setItem(accessTokenStorageKey, value);
-}
-const appCredentialsStorageKey = "dim ice app credentials";
-function tryLoadAppCredentials(): Application | undefined {
-  //TODO better differentiate errrors
-  // We don't have persistent storage in incognito windows
-  if (!("localStorage" in window)) return undefined;
-
-  const value = localStorage.getItem(appCredentialsStorageKey);
-  if (value === null) return undefined;
-
-  //TODO error handling
-  return JSON.parse(value) as Application;
-}
-
-function saveAppCredentials(app: Application) {
-  //TODO better differentiate errrors
-  // We don't have persistent storage in incognito windows
-  if (!("localStorage" in window)) return;
-
-  const value = JSON.stringify(app);
-  localStorage.setItem(appCredentialsStorageKey, value);
 }
 
 function startCodeExchange(
@@ -473,7 +245,13 @@ function startCodeExchange(
   // That way I can shorten the signature maybe, is this good?
   const exchangeCommand = command.ofPromise.perform(
     ({ base, code }) =>
-      exchangeCodeForToken(base, code, app.client_id, app.client_secret),
+      api.exchangeCodeForToken(
+        base,
+        redirectUri,
+        code,
+        app.client_id,
+        app.client_secret
+      ),
     { base: instance.baseUrl, code },
     (token: AccessTokenResponse): AppMessage => ({
       type: "setAccessToken",
@@ -555,7 +333,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
       case "create app":
         // Create application on instance
         const createAppCommand = command.ofPromise.perform(
-          () => createApp(model.instance.baseUrl),
+          () => api.createApp(model.instance.baseUrl, redirectUri),
           undefined,
           (app): AppMessage => ({ type: "set app credentials", app })
         );
@@ -611,7 +389,8 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
         }
 
         const verifyCommand = command.ofPromise.perform(
-          () => verifyCredentials(model.instance.baseUrl, message.accessToken),
+          () =>
+            api.verifyCredentials(model.instance.baseUrl, message.accessToken),
           undefined,
           (result): AppMessage => {
             if ("error" in result)
@@ -650,7 +429,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
         }
 
         const revokeTokenCommand = command.ofEffect<AppMessage>(() =>
-          revokeToken(
+          api.revokeToken(
             model.instance.baseUrl,
             model.accessToken,
             model.app.client_id,
@@ -671,7 +450,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
 
         //TODO error handling
         const fetchTimelineCommand = command.ofPromise.perform(
-          () => getHomeTimeline(model.instance.baseUrl, message.token),
+          () => api.getHomeTimeline(model.instance.baseUrl, message.token),
           undefined,
           (stati): AppMessage => ({ type: "set toots", homeTimeline: stati })
         );
@@ -731,7 +510,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
         console.debug("Getting nex toots from ", model.links.next);
         //TODO error handling
         const fetchNextTootsCommand = command.ofPromise.perform(
-          () => fetchTootsFromUrl(model.links.next, model.accessToken),
+          () => api.fetchTootsFromUrl(model.links.next, model.accessToken),
           undefined,
           (toots): AppMessage => ({ type: "append toots", toots })
         );
