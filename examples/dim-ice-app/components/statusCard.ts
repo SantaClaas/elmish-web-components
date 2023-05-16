@@ -1,6 +1,6 @@
 import { TemplateResult, html, nothing, svg } from "lit-html";
 import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
-import Status from "../api/status";
+import Status from "../api/models/status";
 import { accountAvatar } from "./avatar";
 import ElmishElement from "../../../src/elmishComponent";
 import { type Command, type Dispatch } from "../../../src/elmish/command";
@@ -289,18 +289,15 @@ export class StatusCard extends ElmishElement<
     }
 
     const hours = minutes / 60;
-    if (hours > -1) {
-      return formatter.format(Math.round(minutes), "minute");
-    }
+    if (hours > -1) return formatter.format(Math.round(minutes), "minute");
 
     const days = hours / 24;
     // Is "yesterday" or "one day ago" before last midnight or between the last 24 and 48 hours?
-    if (days > -1) {
-      return formatter.format(Math.round(hours), "hour");
-    }
+    if (days > -1) return formatter.format(Math.round(hours), "hour");
 
     return formatter.format(Math.round(days), "day");
   }
+
   protected view(
     status: Status | null,
     dispatch: Dispatch<StatusCardMessage>
@@ -318,7 +315,19 @@ export class StatusCard extends ElmishElement<
 
     const createdAtDate = new Date(createdAt);
     const relativeDate = StatusCard.#getRelativeDate(createdAtDate);
+
+    const countReplies = isRetoot
+      ? status.reblog!.replies_count
+      : status.replies_count;
+    const countRetoots = isRetoot
+      ? status.reblog!.reblogs_count
+      : status.reblogs_count;
+    const countFavorites = isRetoot
+      ? status.reblog!.favourites_count
+      : status.favourites_count;
+
     // We assume HTML provided by Mastodon is safe against XSS
+    // https://docs.joinmastodon.org/spec/activitypub/#sanitization
 
     return html`
       <article lang="${languageCode ?? nothing}">
@@ -366,8 +375,8 @@ export class StatusCard extends ElmishElement<
                 d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z"
               />
             </svg>
-            <span class="${status.replies_count === 0 ? "sr-only" : nothing}"
-              >${status.replies_count}<span class="sr-only"
+            <span class="${countReplies === 0 ? "sr-only" : nothing}"
+              >${countReplies}<span class="sr-only"
                 >Replies. Click to reply</span
               ></span
             >
@@ -386,8 +395,8 @@ export class StatusCard extends ElmishElement<
                 d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3"
               />
             </svg>
-            <span class="${status.reblogs_count === 0 ? "sr-only" : nothing}"
-              >${status.reblogs_count}<span class="sr-only"
+            <span class="${countRetoots === 0 ? "sr-only" : nothing}"
+              >${countRetoots}<span class="sr-only"
                 >Retoots. Click to retoot</span
               ></span
             >
@@ -407,9 +416,9 @@ export class StatusCard extends ElmishElement<
               />
             </svg>
 
-            <span class="${status.favourites_count === 0 ? "sr-only" : nothing}"
-              >${status.favourites_count}
-              <span class="sr-only">Likes. Click to like</span></span
+            <span class="${countFavorites === 0 ? "sr-only" : nothing}"
+              >${countFavorites}
+              <span class="sr-only">Favorites. Click to favorite</span></span
             >
           </button>
           <button @click=${() => dispatch({ type: "favorite" })}>
@@ -426,7 +435,7 @@ export class StatusCard extends ElmishElement<
                 d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z"
               />
             </svg>
-            <span class="sr-only">Favorite</span>
+            <span class="sr-only">Bookmark</span>
           </button>
         </footer>
       </article>

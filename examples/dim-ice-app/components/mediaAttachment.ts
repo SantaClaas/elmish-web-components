@@ -1,11 +1,11 @@
 import { TemplateResult, nothing, html } from "lit-html";
-import MediaAttachment from "../api/mediaAttachment";
+import MediaAttachment from "../api/models/mediaAttachment";
 import { repeat } from "lit-html/directives/repeat.js";
 import { decodeBlurHash } from "fast-blurhash";
-import { BlurHash } from "../api/string";
+import { BlurHash } from "../api/models/string";
 import { generatePng } from "../pixelsToPng";
 import ElmishElement from "../../../src/elmishComponent";
-import command, { Command, Dispatch } from "../../../src/elmish/command";
+import command, { Command } from "../../../src/elmish/command";
 import { css } from "../styling";
 
 //TODO dispose object URL
