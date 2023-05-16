@@ -86,11 +86,21 @@ export default class MediaAttachmentCollection extends ElmishElement<
   MediaAttachmentsMessage
 > {
   protected static styles?: Promise<CSSStyleSheet> = css`
-    picture,
+    /* :host {
+      width: 100%;
+      display: block;
+    } */
+
+    picture {
+      display: block;
+      width: 100%;
+    }
+
     img,
     video {
       width: 100%;
       height: 100%;
+      object-fit: contain;
       border-radius: var(--radius-2);
     }
   `;
