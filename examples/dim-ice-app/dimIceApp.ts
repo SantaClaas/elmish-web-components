@@ -8,7 +8,6 @@ import { StatusCard } from "./components/statusCard";
 import { css } from "./styling";
 import MediaAttachmentCollection from "./components/mediaAttachment";
 import "@lit-labs/virtualizer";
-import type { RangeChangedEvent } from "@lit-labs/virtualizer/events";
 import { AccessToken } from "./api/models/string";
 import Application from "./api/models/apps/application";
 import AccessTokenResponse from "./api/models/oauth/accessTokenResponse";
@@ -21,60 +20,12 @@ import {
 import GetHomeTimelineResponse from "./api/models/getHomeTimelineResponse";
 import PaginationUrls from "./api/paginationUrls";
 import api from "./api/api";
-
-// Current location. Should not change while page is active
-// Redirect url needs to be registered with app on mastodon.social
-const redirectUri = new URL("/redirect", location.href);
-
-// These types use tagged unions to emulate unions from F# or other more functional programming languages
-type FirstOpen = {
-  readonly type: "firstOpen";
-  readonly error?: AppError;
-};
-
-/**
- * Represents the state when the user was signed in at one point so that we already have app credentials but the users
- * access token is not valid (e.g. the token life time expired)
- */
-type ReauthorizationRequired = {
-  readonly type: "authorization required";
-} & WithAppCredentials;
-
-/**
- * Represents the state the app is in after existing access token was loaded
- */
-type VerifyingCredentials = {
-  readonly type: "verifying credentials";
-} & WithAppCredentials;
-
-/**
- * Represents the errors that can occur. They are strings but can be complex objects if more information is required
- */
-type AppError =
-  /**
-   * No code was provided when "/redirect" was opened. It should only be openend during an authorization code flow
-   * and the code should be set as query parameter
-   */
-  | "noCodeRedirect"
-  /**
-   * The browser does not support APIs that are required by the app. The app should try to work and not completely block users
-   * as it is very likely to still work even if incompatibility is detected. But the focus is to support modern browsers as of the time of writing.
-   */
-  | "outdatedBrowser";
-
-type CreatingApp = {
-  readonly type: "creating app";
-};
-/**
- * Represents the state when the app was openend after a redirect from the authorization code flow
- */
-type RunningCodeExchange = {
-  readonly type: "codeExchange";
-} & WithAppCredentials;
-
-type WithAppCredentials = {
-  app: Application;
-};
+import homeTimelinePage, {
+  HomeTimelinePageMessage,
+  HomeTimelinePageModel,
+} from "./pages/homeTimelinePage";
+import { WelcomePageMessage, WelcomePageModel } from "./pages/welcomePage";
+import Instance from "./instance";
 
 /**
  * Represents the state when the app has an access token and is fetching the timeline
@@ -88,41 +39,30 @@ type LoadingTimeline = {
  */
 type HomeTimeline = {
   readonly type: "homeTimeline";
-  readonly stati: Status[];
+  readonly toots: Status[];
   readonly links: PaginationUrls;
   readonly isLoadingMoreToots: boolean;
 };
 
-/**
- * Represents metadata about a mastodon server instance
- */
-type Instance = {
-  baseUrl: URL;
-};
-
-/**
- * Represents state that is always present in the app, like information about the selected instance
- */
-type StaticAppData = {
-  instance: Instance;
-};
-
-type Authorized = (LoadingTimeline | HomeTimeline) & {
-  accessToken: AccessToken;
-} & WithAppCredentials;
-
-type Unauthorized =
-  | FirstOpen
-  | CreatingApp
-  | ReauthorizationRequired
-  | RunningCodeExchange
-  | VerifyingCredentials;
+type Page =
+  | {
+      page: "home timeline";
+      model: HomeTimelinePageModel;
+    }
+  | { page: "welcome"; model: WelcomePageModel };
 /**
  *  App model represents the different states the app can be in
  */
-type AppModel = (Unauthorized | Authorized) & StaticAppData;
-
-type AppMessage =
+// type AppModel = (Unauthorized | Authorized) &
+//   StaticAppData & {
+//     page: "home timeline";
+//     pageModel: HomeTimelinePageModel;
+//   };
+type AppModel = {
+  currentPage: Page;
+  instance: Instance;
+};
+export type AppMessage =
   | {
       readonly type: "set instance";
       readonly instance: string;
@@ -147,7 +87,6 @@ type AppMessage =
       readonly type: "setAccessToken";
       readonly token: AccessTokenResponse;
     }
-  | { readonly type: "sign out" }
   | {
       readonly type: "load home timeline";
       readonly token: AccessToken;
@@ -160,52 +99,19 @@ type AppMessage =
       readonly type: "append toots";
       readonly toots: GetHomeTimelineResponse;
     }
-  // This occurs when the range of stati rendered to the dom is changed by the lit virtualizer. If we reach the end of
-  // the toots loaded, then we need to trigger loading more
+
+  // New messages
   | {
-      readonly type: "virtualizer range changed";
-      readonly event: RangeChangedEvent;
+      readonly type: "navigate to home timeline";
+    }
+  | {
+      readonly type: "welcome page message";
+      readonly message: WelcomePageMessage;
+    }
+  | {
+      readonly type: "home timeline page message";
+      readonly message: HomeTimelinePageMessage;
     };
-
-function createInstanceBaseUrl(instance: string) {
-  //TODO we should add some verification here because the string can be anything
-  return new URL(`https://${instance}/`);
-}
-
-function createAuthorizationUrl(instanceBaseUrl: URL, clientId: string) {
-  const authorizationUrl = new URL("/oauth/authorize", instanceBaseUrl);
-  authorizationUrl.searchParams.set("client_id", clientId);
-  authorizationUrl.searchParams.set("scope", "read");
-  //TODO make redirect go to url opened by user
-  // When the user openes an url that they got send or saved as bookmark and are not signed in
-  // they will currently be redirected to the start page after the code exchange happened.
-  // They should instead be redirected to the link they originally opened
-  authorizationUrl.searchParams.set("redirect_uri", redirectUri.toString());
-  authorizationUrl.searchParams.set("response_type", "code");
-
-  return authorizationUrl;
-}
-
-function createErrorUi(error?: AppError): TemplateResult | typeof nothing {
-  //TODO implement proper error ui
-  switch (error) {
-    case "noCodeRedirect":
-      return html`<section>
-        No code was provided for authorization code flow. If you tried to sign
-        in please go <a href="/">back</a> and try again
-      </section>`;
-
-    case "outdatedBrowser":
-      return html`<section>
-        Your browser might not be up to date or doesn't fully support this app.
-        Some features might not work as expected.
-      </section>`;
-
-    // In case we have no error
-    case undefined:
-      return nothing;
-  }
-}
 
 function startCodeExchange(
   instance: Instance,
@@ -474,7 +380,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
         return [
           {
             type: "homeTimeline",
-            stati: message.homeTimeline.toots,
+            toots: message.homeTimeline.toots,
             links: message.homeTimeline.links,
             instance: model.instance,
             isLoadingMoreToots: false,
@@ -483,12 +389,14 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
           },
           command.none,
         ];
-
+      case "home timeline page message":
+        if (model.type != "homeTimeline") {
+          console.error("Excpected home time line model");
+          return [model, command.none];
+        }
+        const newModel = homeTimelinePage.update(message.message, model);
+        return [model, command.none];
       case "virtualizer range changed":
-        console.debug("Virtualizer range changed", {
-          last: message.event.last,
-          first: message.event.first,
-        });
         if (model.type !== "homeTimeline") {
           //TODO separate into home time line page component to avoid this invalid state
           console.error("Separate state, claas");
@@ -497,23 +405,20 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
 
         if (model.isLoadingMoreToots) {
           // Already loading more toots don't need to start another one
-          console.debug("The lock 🔒 worked 🙂");
           return [model, command.none];
         }
 
-        if (message.event.last !== model.stati.length - 1) {
-          console.debug("The last toot has not been seen! ✋");
+        if (message.event.last !== model.toots.length - 1) {
           return [model, command.none];
         }
 
-        console.debug("Last toot rendered! ⌚️");
-        console.debug("Getting nex toots from ", model.links.next);
         //TODO error handling
         const fetchNextTootsCommand = command.ofPromise.perform(
           () => api.fetchTootsFromUrl(model.links.next, model.accessToken),
           undefined,
           (toots): AppMessage => ({ type: "append toots", toots })
         );
+
         return [{ ...model, isLoadingMoreToots: true }, fetchNextTootsCommand];
       case "append toots":
         if (model.type !== "homeTimeline") {
@@ -528,7 +433,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
             isLoadingMoreToots: false,
             links: message.toots.links,
             // I tried push but lit virtualizer does not seem to update if it is the same array
-            stati: [...model.stati, ...message.toots.toots],
+            toots: [...model.toots, ...message.toots.toots],
           },
           command.none,
         ];
@@ -539,6 +444,8 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
     /* Additional normalization */
     ul {
       padding-inline-start: 0;
+      max-width: var(--size-15);
+      margin-inline: auto;
     }
 
     ul lit-virtualizer > * + * {
@@ -608,26 +515,11 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
       case "loadingTimeline":
         return html`<section>Loading toots...</section>`;
       case "homeTimeline":
-        return html` <header>
-          <h1>Home Timeline</h1>
-          <button @click=${() => dispatch({ type: "sign out" })}>
-            Sign out
-          </button>
-          <header>
-            <ul>
-              <lit-virtualizer
-                @rangeChanged=${(event: RangeChangedEvent) =>
-                  dispatch({ type: "virtualizer range changed", event })}
-                .items=${model.stati}
-                .renderItem=${(status: Status) =>
-                  html`<dim-ice-status-card
-                    .status=${status}
-                  ></dim-ice-status-card>`}
-              >
-              </lit-virtualizer>
-            </ul>
-          </header>
-        </header>`;
+        return html`<main>
+          ${homeTimelinePage.view(model, (message) =>
+            dispatch({ type: "home timeline page message", message })
+          )}
+        </main>`;
     }
   }
 }
