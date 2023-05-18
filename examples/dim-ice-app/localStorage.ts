@@ -1,9 +1,9 @@
 import Application from "./api/models/apps/application";
 import AccessTokenResponse from "./api/models/oauth/accessTokenResponse";
-import Instance, { InstanceWithCredentials } from "./instance";
+import { InstanceWithCredentials } from "./instance";
 
 function tryLoadAsJson<TValue>(key: string): TValue | undefined {
-  //TODO better differentiate errrors
+  //TODO better differentiate errors
   // We don't have persistent storage in incognito windows
   if (!("localStorage" in window)) return undefined;
 
@@ -15,12 +15,12 @@ function tryLoadAsJson<TValue>(key: string): TValue | undefined {
 }
 
 function saveAsJson<TValue>(key: string, value: TValue) {
-  //TODO better differentiate errrors
+  //TODO better differentiate errors
   // We don't have persistent storage in incognito windows
   if (!("localStorage" in window)) return;
 
   const json = JSON.stringify(value);
-  localStorage.setItem(accessTokenStorageKey, json);
+  localStorage.setItem(key, json);
 }
 
 const accessTokenStorageKey = "dim ice access token";
@@ -45,12 +45,3 @@ export function tryLoadAppCredentials(): InstanceWithCredentials | undefined {
 export function saveAppCredentials(app: InstanceWithCredentials) {
   saveAsJson(appCredentialsStorageKey, app);
 }
-
-// const instanceStorageKey = "dim ice instance";
-// export function tryLoadInstance(): Instance | undefined {
-//   return tryLoadAsJson(instanceStorageKey);
-// }
-
-// export function saveInstance(instance: Instance) {
-//   saveAsJson(instanceStorageKey, instance);
-// }
