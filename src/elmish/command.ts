@@ -34,6 +34,23 @@ export function execute<TMessage>(
   });
 }
 
+export function map<TMessageA, TMessageB>(
+  mapper: (message: TMessageA) => TMessageB,
+  command: Command<TMessageA>
+): Command<TMessageB> {
+  // I'm sorry this is a bit harder to read. If you find a solution that is easier to read and maps one message type to
+  // the other please contribute
+  return command.map((effect): Effect<TMessageB> => {
+    const newEffect = (dispatchB: Dispatch<TMessageB>) => {
+      const newDispatch = (messageA: TMessageA) => {
+        dispatchB(mapper(messageA));
+      };
+      effect(newDispatch);
+    };
+    return newEffect;
+  });
+}
+
 /**
  * Aggregate multiple commands
  */
@@ -160,8 +177,9 @@ export const ofPromise = {
         const result = await task(argument);
         const message = ofSuccess(result);
         dispatch(message);
-      } catch (_) {
+      } catch (e) {
         // Ignored
+        console.error("Ignored error:", e);
       }
     }
 
@@ -200,10 +218,11 @@ export function ofMessage<TMessage>(message: TMessage): Command<TMessage> {
 }
 
 const command = {
-  ofMessage,
-  none,
-  ofPromise,
   execute,
+  none,
+  map,
+  ofMessage,
+  ofPromise,
   ofFunction,
   batch,
   ofEffect,

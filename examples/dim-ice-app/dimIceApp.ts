@@ -1,314 +1,71 @@
 // The dim ice app mastodon client root component
 import command from "../../src/elmish/command";
 import { type Command, type Dispatch } from "../../src/elmish/command";
-import { TemplateResult, html, nothing } from "lit-html";
+import { TemplateResult } from "lit-html";
 import ElmishElement from "../../src/elmishComponent";
-import Status from "./api/models/status";
 import { StatusCard } from "./components/statusCard";
 import { css } from "./styling";
 import MediaAttachmentCollection from "./components/mediaAttachment";
 import "@lit-labs/virtualizer";
-import type { RangeChangedEvent } from "@lit-labs/virtualizer/events";
-import { AccessToken } from "./api/models/string";
-import Application from "./api/models/apps/application";
-import AccessTokenResponse from "./api/models/oauth/accessTokenResponse";
-import {
-  tryLoadAppCredentials,
-  tryLoadAccessToken,
-  saveAppCredentials,
-  saveAccessToken,
-} from "./localStorage";
-import GetHomeTimelineResponse from "./api/models/getHomeTimelineResponse";
-import PaginationUrls from "./api/paginationUrls";
-import api from "./api/api";
+import homeTimelinePage, {
+  HomeTimelinePageMessage,
+  HomeTimelinePageModel,
+} from "./pages/homeTimelinePage";
+import welcomePage, {
+  WelcomePageMessage,
+  WelcomePageModel,
+} from "./pages/welcomePage";
+import Instance from "./instance";
 
-// Current location. Should not change while page is active
-// Redirect url needs to be registered with app on mastodon.social
-const redirectUri = new URL("/redirect", location.href);
-
-// These types use tagged unions to emulate unions from F# or other more functional programming languages
-type FirstOpen = {
-  readonly type: "firstOpen";
-  readonly error?: AppError;
-};
-
-/**
- * Represents the state when the user was signed in at one point so that we already have app credentials but the users
- * access token is not valid (e.g. the token life time expired)
- */
-type ReauthorizationRequired = {
-  readonly type: "authorization required";
-} & WithAppCredentials;
-
-/**
- * Represents the state the app is in after existing access token was loaded
- */
-type VerifyingCredentials = {
-  readonly type: "verifying credentials";
-} & WithAppCredentials;
-
-/**
- * Represents the errors that can occur. They are strings but can be complex objects if more information is required
- */
-type AppError =
-  /**
-   * No code was provided when "/redirect" was opened. It should only be openend during an authorization code flow
-   * and the code should be set as query parameter
-   */
-  | "noCodeRedirect"
-  /**
-   * The browser does not support APIs that are required by the app. The app should try to work and not completely block users
-   * as it is very likely to still work even if incompatibility is detected. But the focus is to support modern browsers as of the time of writing.
-   */
-  | "outdatedBrowser";
-
-type CreatingApp = {
-  readonly type: "creating app";
-};
-/**
- * Represents the state when the app was openend after a redirect from the authorization code flow
- */
-type RunningCodeExchange = {
-  readonly type: "codeExchange";
-} & WithAppCredentials;
-
-type WithAppCredentials = {
-  app: Application;
-};
-
-/**
- * Represents the state when the app has an access token and is fetching the timeline
- */
-type LoadingTimeline = {
-  readonly type: "loadingTimeline";
-};
-
-/**
- * Represents the app state when on the home timeline "page" and the latest stati were loaded
- */
-type HomeTimeline = {
-  readonly type: "homeTimeline";
-  readonly stati: Status[];
-  readonly links: PaginationUrls;
-  readonly isLoadingMoreToots: boolean;
-};
-
-/**
- * Represents metadata about a mastodon server instance
- */
-type Instance = {
-  baseUrl: URL;
-};
-
-/**
- * Represents state that is always present in the app, like information about the selected instance
- */
-type StaticAppData = {
-  instance: Instance;
-};
-
-type Authorized = (LoadingTimeline | HomeTimeline) & {
-  accessToken: AccessToken;
-} & WithAppCredentials;
-
-type Unauthorized =
-  | FirstOpen
-  | CreatingApp
-  | ReauthorizationRequired
-  | RunningCodeExchange
-  | VerifyingCredentials;
+type Page =
+  | {
+      page: "home timeline";
+      model: HomeTimelinePageModel;
+    }
+  | { page: "welcome"; model: WelcomePageModel };
 /**
  *  App model represents the different states the app can be in
  */
-type AppModel = (Unauthorized | Authorized) & StaticAppData;
+type AppModel = {
+  activePage: Page;
+  instance: Instance;
+};
 
-type AppMessage =
+export type AppMessage =
   | {
-      readonly type: "set instance";
-      readonly instance: string;
+      readonly type: "welcome page message";
+      readonly message: WelcomePageMessage;
     }
   | {
-      readonly type: "create app";
-    }
-  | {
-      readonly type: "set app credentials";
-      readonly app: Application;
-    }
-  | {
-      readonly type: "navigate to authorization page";
-    }
-  | {
-      // When the access token is loaded and needs to be verified
-      // If not valid then we need to reauthorize
-      readonly type: "verify credentials";
-      readonly accessToken: AccessToken;
-    }
-  | {
-      readonly type: "setAccessToken";
-      readonly token: AccessTokenResponse;
-    }
-  | { readonly type: "sign out" }
-  | {
-      readonly type: "load home timeline";
-      readonly token: AccessToken;
-    }
-  | {
-      readonly type: "set toots";
-      readonly homeTimeline: GetHomeTimelineResponse;
-    }
-  | {
-      readonly type: "append toots";
-      readonly toots: GetHomeTimelineResponse;
-    }
-  // This occurs when the range of stati rendered to the dom is changed by the lit virtualizer. If we reach the end of
-  // the toots loaded, then we need to trigger loading more
-  | {
-      readonly type: "virtualizer range changed";
-      readonly event: RangeChangedEvent;
+      readonly type: "home timeline page message";
+      readonly message: HomeTimelinePageMessage;
     };
 
-function createInstanceBaseUrl(instance: string) {
-  //TODO we should add some verification here because the string can be anything
-  return new URL(`https://${instance}/`);
+function welcomePageMessage(message: WelcomePageMessage): AppMessage {
+  return { type: "welcome page message", message };
 }
 
-function createAuthorizationUrl(instanceBaseUrl: URL, clientId: string) {
-  const authorizationUrl = new URL("/oauth/authorize", instanceBaseUrl);
-  authorizationUrl.searchParams.set("client_id", clientId);
-  authorizationUrl.searchParams.set("scope", "read");
-  //TODO make redirect go to url opened by user
-  // When the user openes an url that they got send or saved as bookmark and are not signed in
-  // they will currently be redirected to the start page after the code exchange happened.
-  // They should instead be redirected to the link they originally opened
-  authorizationUrl.searchParams.set("redirect_uri", redirectUri.toString());
-  authorizationUrl.searchParams.set("response_type", "code");
-
-  return authorizationUrl;
-}
-
-function createErrorUi(error?: AppError): TemplateResult | typeof nothing {
-  //TODO implement proper error ui
-  switch (error) {
-    case "noCodeRedirect":
-      return html`<section>
-        No code was provided for authorization code flow. If you tried to sign
-        in please go <a href="/">back</a> and try again
-      </section>`;
-
-    case "outdatedBrowser":
-      return html`<section>
-        Your browser might not be up to date or doesn't fully support this app.
-        Some features might not work as expected.
-      </section>`;
-
-    // In case we have no error
-    case undefined:
-      return nothing;
-  }
-}
-
-function startCodeExchange(
-  instance: Instance,
-  app: Application
-): [AppModel, Command<AppMessage>] {
-  // Get code from url
-  const currentLocation = new URL(location.href);
-  const code = currentLocation.searchParams.get("code");
-  // Remove code from url so we don't trigger another exchange accidentally
-  currentLocation.searchParams.delete("code");
-  // Reset path
-  currentLocation.pathname = "";
-
-  //TODO consider moving side effects into commands
-  //TODO use new navigation api in chromium and fallback to old and crufty history
-  history.replaceState({}, "", currentLocation.href);
-  if (code === null) {
-    // This is an error. We got navigated to redirect but did not get a code passed as query parameter
-    // Though this is an expectable error as users can just open the app with "/redirect"
-    // and very likely don't pass a valid authorization code in the query
-    // There are many other reasons we can end up in this stateW
-
-    return [
-      {
-        type: "firstOpen",
-        error: "noCodeRedirect",
-        instance,
-      },
-      command.none,
-    ];
-  }
-
-  // Start async code exchange command (side effect)
-  //TODO develop alternative functions that use function.apply with an arguments array.
-  //TODO error handling
-  // I just need to find out how to type this in TS
-  // That way I can shorten the signature maybe, is this good?
-  const exchangeCommand = command.ofPromise.perform(
-    ({ base, code }) =>
-      api.exchangeCodeForToken(
-        base,
-        redirectUri,
-        code,
-        app.client_id,
-        app.client_secret
-      ),
-    { base: instance.baseUrl, code },
-    (token: AccessTokenResponse): AppMessage => ({
-      type: "setAccessToken",
-      token,
-    })
-  );
-
-  return [{ type: "codeExchange", instance, app }, exchangeCommand];
+function hometimelinePageMessage(message: HomeTimelinePageMessage): AppMessage {
+  return { type: "home timeline page message", message };
 }
 
 class DimIceApp extends ElmishElement<AppModel, AppMessage> {
   initialize(): [AppModel, Command<AppMessage>] {
-    // Default instance for now
-    const defaultInstance = "mastodon.social";
+    // We delegate all of the authorization flow to the welcome page
+    // Therefore we need to always start there
+    const [pageModel, pageCommand] = welcomePage.initialize();
 
-    const instance: Instance = {
-      baseUrl: createInstanceBaseUrl(defaultInstance),
-    };
-
-    // Try load app credentials, if we don't have app credentials we need to start onboarding again
-    const app = tryLoadAppCredentials();
-    if (app === undefined)
-      return [
-        {
-          type: "firstOpen",
-          instance,
-        },
-        command.none,
-      ];
-
-    // Check if we are in authorization code flow
-    // This takes precedence before trying to load an existing access token in case the user wants to authorize with
-    // a different instance
-    if (location.pathname === "/redirect")
-      return startCodeExchange(instance, app);
-
-    // Try to load existing access token
-    const token = tryLoadAccessToken();
-    if (token === undefined)
-      return [
-        {
-          type: "authorization required",
-          app,
-          instance,
-        },
-        command.none,
-      ];
-
-    const verifyCredentialsCommand = command.ofMessage<AppMessage>({
-      type: "verify credentials",
-      accessToken: token.access_token,
-    });
+    const initialCommand: Command<AppMessage> = command.map(
+      welcomePageMessage,
+      pageCommand
+    );
 
     return [
-      { type: "verifying credentials", instance, app },
-      verifyCredentialsCommand,
-      // command.none,
+      {
+        activePage: { page: "welcome", model: pageModel },
+        instance: pageModel.instance,
+      },
+      initialCommand,
     ];
   }
 
@@ -316,221 +73,71 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
     message: AppMessage,
     model: AppModel
   ): [AppModel, Command<AppMessage>] {
-    //TODO split up in landing page and home page
     switch (message.type) {
-      case "set instance":
-        const instanceBaseUrl = createInstanceBaseUrl(message.instance);
-
-        // Yes this allocates a new object but I prefer immutability.
-        // Might consider changing when measurable disadvantage exists
-        return [
-          {
-            type: "firstOpen",
-            instance: { baseUrl: instanceBaseUrl },
-          },
-          command.none,
-        ];
-      case "create app":
-        // Create application on instance
-        const createAppCommand = command.ofPromise.perform(
-          () => api.createApp(model.instance.baseUrl, redirectUri),
-          undefined,
-          (app): AppMessage => ({ type: "set app credentials", app })
-        );
-        return [
-          { type: "creating app", instance: model.instance },
-          createAppCommand,
-        ];
-
-      // App credentials are set once during the onboarding flow
-      case "set app credentials":
-        // Save to local storage
-        const persistCredentialsCommand = command.ofFunction.perform(
-          saveAppCredentials,
-          message.app,
-          (): AppMessage => ({ type: "navigate to authorization page" })
-        );
-        console.debug({ model });
-        return [
-          { type: "codeExchange", app: message.app, instance: model.instance },
-          persistCredentialsCommand,
-        ];
-
-      // We can get here after an app has been created or an app already exists but reauthorization is required
-      case "navigate to authorization page":
-        if (!("app" in model)) {
-          console.error("Invalid state, expected to have app");
-          return [
-            { type: "firstOpen", instance: model.instance },
-            command.none,
-          ];
-        }
-        const authorizationUrl = createAuthorizationUrl(
-          model.instance.baseUrl,
-          model.app.client_id
-        );
-
-        console.debug("Navigating to authorization page", authorizationUrl);
-
-        // Could consider starting termination to gracefully shut down running processes but at this point there
-        // shouldn't be any
-        const navigateCommand = command.ofEffect<AppMessage>(() =>
-          globalThis.location.assign(authorizationUrl)
-        );
-        return [model, navigateCommand];
-
-      case "verify credentials":
-        if (!("app" in model)) {
-          console.error("Invalid state, expected to have app");
-          return [
-            { type: "firstOpen", instance: model.instance },
-            command.none,
-          ];
+      case "welcome page message":
+        if (model.activePage.page !== "welcome") {
+          console.error("Expected to be on welcome page");
+          return [model, command.none];
         }
 
-        const verifyCommand = command.ofPromise.perform(
-          () =>
-            api.verifyCredentials(model.instance.baseUrl, message.accessToken),
-          undefined,
-          (result): AppMessage => {
-            if ("error" in result)
-              return { type: "navigate to authorization page" };
+        const [welcomePageModel, welcomePageCommand, externalMessage] =
+          welcomePage.update(message.message, model.activePage.model);
 
-            return { type: "load home timeline", token: message.accessToken };
-          }
+        const newCommands: Command<AppMessage> = command.map(
+          welcomePageMessage,
+          welcomePageCommand
         );
 
+        switch (externalMessage?.type) {
+          case undefined:
+            return [
+              {
+                instance: model.instance,
+                activePage: {
+                  page: "welcome",
+                  model: welcomePageModel,
+                },
+              },
+              newCommands,
+            ];
+          case "authorization completed":
+            const [newPageModel, newPageCommands] = homeTimelinePage.initialize(
+              externalMessage.accessToken,
+              externalMessage.instance
+            );
+
+            newCommands.push(
+              ...command.map(hometimelinePageMessage, newPageCommands)
+            );
+            return [
+              {
+                instance: externalMessage.instance,
+                activePage: { page: "home timeline", model: newPageModel },
+              },
+              newCommands,
+            ];
+        }
+      case "home timeline page message":
+        if (model.activePage.page !== "home timeline") {
+          console.error("Expected to be on home timeline page");
+          return [model, command.none];
+        }
+
+        const [homePageModel, homePageCommand] = homeTimelinePage.update(
+          message.message,
+          model.activePage.model
+        );
+
+        const mappedCommand = command.map(
+          hometimelinePageMessage,
+          homePageCommand
+        );
         return [
           {
-            type: "verifying credentials",
-            app: model.app,
+            activePage: { page: "home timeline", model: homePageModel },
             instance: model.instance,
           },
-          verifyCommand,
-        ];
-
-      // Exchange credentials for access token
-      case "setAccessToken":
-        // Effect describes side effects which can be put into commands?
-        const persistTokenCommand = command.ofFunction.perform(
-          saveAccessToken,
-          message.token,
-          (): AppMessage => ({
-            type: "load home timeline",
-            token: message.token.access_token,
-          })
-        );
-
-        return [model, persistTokenCommand];
-      case "sign out":
-        if (model.type !== "homeTimeline") {
-          console.error("Can not sign out if not on home time line");
-          return [model, command.none];
-        }
-
-        const revokeTokenCommand = command.ofEffect<AppMessage>(() =>
-          api.revokeToken(
-            model.instance.baseUrl,
-            model.accessToken,
-            model.app.client_id,
-            model.app.client_secret
-          )
-        );
-
-        return [
-          { type: "firstOpen", instance: model.instance },
-          revokeTokenCommand,
-        ];
-
-      case "load home timeline":
-        if (!("app" in model)) {
-          console.error("Expected to have app at this point", { model });
-          return [model, command.none];
-        }
-
-        //TODO error handling
-        const fetchTimelineCommand = command.ofPromise.perform(
-          () => api.getHomeTimeline(model.instance.baseUrl, message.token),
-          undefined,
-          (stati): AppMessage => ({ type: "set toots", homeTimeline: stati })
-        );
-        return [
-          {
-            type: "loadingTimeline",
-            accessToken: message.token,
-            app: model.app,
-            instance: model.instance,
-          },
-          fetchTimelineCommand,
-        ];
-
-      case "set toots":
-        //TODO this should change when we swap to home page with its own model
-        if (model.type !== "loadingTimeline") {
-          console.error("Can't set toots if wasn't loading them before");
-          return [model, command.none];
-        }
-
-        return [
-          {
-            type: "homeTimeline",
-            stati: message.homeTimeline.toots,
-            links: message.homeTimeline.links,
-            instance: model.instance,
-            isLoadingMoreToots: false,
-            accessToken: model.accessToken,
-            app: model.app,
-          },
-          command.none,
-        ];
-
-      case "virtualizer range changed":
-        console.debug("Virtualizer range changed", {
-          last: message.event.last,
-          first: message.event.first,
-        });
-        if (model.type !== "homeTimeline") {
-          //TODO separate into home time line page component to avoid this invalid state
-          console.error("Separate state, claas");
-          return [model, command.none];
-        }
-
-        if (model.isLoadingMoreToots) {
-          // Already loading more toots don't need to start another one
-          console.debug("The lock 🔒 worked 🙂");
-          return [model, command.none];
-        }
-
-        if (message.event.last !== model.stati.length - 1) {
-          console.debug("The last toot has not been seen! ✋");
-          return [model, command.none];
-        }
-
-        console.debug("Last toot rendered! ⌚️");
-        console.debug("Getting nex toots from ", model.links.next);
-        //TODO error handling
-        const fetchNextTootsCommand = command.ofPromise.perform(
-          () => api.fetchTootsFromUrl(model.links.next, model.accessToken),
-          undefined,
-          (toots): AppMessage => ({ type: "append toots", toots })
-        );
-        return [{ ...model, isLoadingMoreToots: true }, fetchNextTootsCommand];
-      case "append toots":
-        if (model.type !== "homeTimeline") {
-          //TODO separate into home time line page component to avoid this invalid state
-          console.error("Separate state again, claas");
-          return [model, command.none];
-        }
-
-        return [
-          {
-            ...model,
-            isLoadingMoreToots: false,
-            links: message.toots.links,
-            // I tried push but lit virtualizer does not seem to update if it is the same array
-            stati: [...model.stati, ...message.toots.toots],
-          },
-          command.none,
+          mappedCommand,
         ];
     }
   }
@@ -539,6 +146,8 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
     /* Additional normalization */
     ul {
       padding-inline-start: 0;
+      max-width: var(--size-15);
+      margin-inline: auto;
     }
 
     ul lit-virtualizer > * + * {
@@ -561,73 +170,15 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
 
   view(model: AppModel, dispatch: Dispatch<AppMessage>): TemplateResult {
     // Thanks to union support in TypeScript the compiler can detect that these are the only valid cases and that we don't need to handle default
-    switch (model.type) {
-      case "codeExchange":
-        //TODO improve this short lived UI to be more user friendly and less technical terms
-        return html`<section>Exchaning token...</section>`;
-
-      case "creating app":
-        return html`Creating App...`;
-      case "authorization required":
-        return html`<h1>Dim Ice</h1>
-          <form @submit=${dispatch({ type: "navigate to authorization page" })}>
-            <input
-              value="${model.instance.baseUrl.hostname}"
-              id="instance"
-              disabled
-            />
-            <button type="submit">Authorize</button>
-          </form>`;
-      case "firstOpen":
-        const errorNotification = createErrorUi(model.error);
-        // Using instance.hostname instead of host which would include the port (if specified)
-        // The assumption is that instances run on https default port 443 all the time
-        // This assumption should make selection of instance easier
-        return html`<h1>Dim Ice Create App</h1>
-          <form
-            @submit=${(event: SubmitEvent) => {
-              dispatch({ type: "create app" });
-              event.preventDefault();
-            }}
-          >
-            ${errorNotification}
-            <input
-              value="${model.instance.baseUrl.hostname}"
-              id="instance"
-              @change="${(event: Event) =>
-                dispatch({
-                  type: "set instance",
-                  instance: (event.target as HTMLInputElement).value,
-                })}"
-            />
-            <button type="submit">Authorize</button>
-          </form>`;
-
-      case "verifying credentials":
-        return html`Verifying credentials`;
-      case "loadingTimeline":
-        return html`<section>Loading toots...</section>`;
-      case "homeTimeline":
-        return html` <header>
-          <h1>Home Timeline</h1>
-          <button @click=${() => dispatch({ type: "sign out" })}>
-            Sign out
-          </button>
-          <header>
-            <ul>
-              <lit-virtualizer
-                @rangeChanged=${(event: RangeChangedEvent) =>
-                  dispatch({ type: "virtualizer range changed", event })}
-                .items=${model.stati}
-                .renderItem=${(status: Status) =>
-                  html`<dim-ice-status-card
-                    .status=${status}
-                  ></dim-ice-status-card>`}
-              >
-              </lit-virtualizer>
-            </ul>
-          </header>
-        </header>`;
+    switch (model.activePage.page) {
+      case "welcome":
+        return welcomePage.view(model.activePage.model, (message) =>
+          dispatch(welcomePageMessage(message))
+        );
+      case "home timeline":
+        return homeTimelinePage.view(model.activePage.model, (message) =>
+          dispatch(hometimelinePageMessage(message))
+        );
     }
   }
 }
