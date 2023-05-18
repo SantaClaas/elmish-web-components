@@ -1,17 +1,27 @@
-import { RangeChangedEvent } from "@lit-labs/virtualizer";
 import { TemplateResult, html, nothing } from "lit-html";
 import command, { Command, Dispatch } from "../../../src/elmish/command";
 import Application from "../api/models/apps/application";
 import AccessTokenResponse from "../api/models/oauth/accessTokenResponse";
-import Status from "../api/models/status";
 import { AccessToken } from "../api/models/string";
 import api from "../api/api";
-import { saveAccessToken, saveAppCredentials } from "../localStorage";
+import {
+  saveAccessToken,
+  saveAppCredentials,
+  tryLoadAccessToken,
+  tryLoadAppCredentials,
+} from "../localStorage";
 import Instance, { InstanceWithCredentials } from "../instance";
 
 // Current location. Should not change while page is active
 // Redirect url needs to be registered with app creation
 const redirectUri = new URL("/redirect", location.href);
+
+// External message following recommendations from https://medium.com/@MangelMaxime/my-tips-for-working-with-elmish-ab8d193d52fd
+export type WelcomePageExternalMessage = {
+  type: "authorization completed";
+  accessToken: AccessToken;
+  instance: Instance;
+};
 
 export type WelcomePageMessage =
   | {
@@ -26,6 +36,7 @@ export type WelcomePageMessage =
       readonly app: Application;
     }
   | {
+      // Navigate to mastodon authorization page in code flow to let user authorize the app
       readonly type: "navigate to authorization page";
     }
   | {
@@ -38,7 +49,7 @@ export type WelcomePageMessage =
       readonly type: "set access token";
       readonly token: AccessTokenResponse;
     }
-  | { readonly type: "navigate to home timeline" };
+  | { readonly type: "authorization completed"; accessToken: AccessToken };
 
 /**
  * Represents the errors that can occur. They are strings but can be complex objects if more information is required
@@ -116,12 +127,117 @@ function createAuthorizationUrl(instanceBaseUrl: URL, clientId: string) {
   return authorizationUrl;
 }
 
+function startCodeExchange(
+  instance: Instance,
+  app: Application
+): [WelcomePageModel, Command<WelcomePageMessage>] {
+  // Get code from url
+  const currentLocation = new URL(location.href);
+  const code = currentLocation.searchParams.get("code");
+  // Remove code from url so we don't trigger another exchange accidentally
+  currentLocation.searchParams.delete("code");
+  // Reset path
+  currentLocation.pathname = "";
+
+  //TODO consider moving side effects into commands
+  //TODO use new navigation api in chromium and fallback to old and crufty history
+  history.replaceState({}, "", currentLocation.href);
+  if (code === null) {
+    // This is an error. We got navigated to redirect but did not get a code passed as query parameter
+    // Though this is an expectable error as users can just open the app with "/redirect"
+    // and very likely don't pass a valid authorization code in the query
+    // There are many other reasons we can end up in this stateW
+
+    return [
+      {
+        type: "first open",
+        error: "noCodeRedirect",
+        instance,
+      },
+      command.none,
+    ];
+  }
+
+  // Start async code exchange command (side effect)
+  //TODO develop alternative functions that use function.apply with an arguments array.
+  //TODO error handling
+  // I just need to find out how to type this in TS
+  // That way I can shorten the signature maybe, is this good?
+  const exchangeCommand = command.ofPromise.perform(
+    ({ base, code }) =>
+      api.exchangeCodeForToken(
+        base,
+        redirectUri,
+        code,
+        app.client_id,
+        app.client_secret
+      ),
+    { base: instance.baseUrl, code },
+    (token: AccessTokenResponse): WelcomePageMessage => ({
+      type: "set access token",
+      token,
+    })
+  );
+
+  return [{ type: "running code exchange", instance, app }, exchangeCommand];
+}
+
+function initialize(): [WelcomePageModel, Command<WelcomePageMessage>] {
+  // Try load app credentials, if we don't have app credentials we need to start onboarding again
+  const credentials = tryLoadAppCredentials();
+  if (credentials === undefined)
+    return [
+      {
+        type: "first open",
+        instance: { baseUrl: createInstanceBaseUrl("mastodon.social") },
+      },
+      command.none,
+    ];
+
+  // Check if we are in authorization code flow
+  // This takes precedence before trying to load an existing access token in case the user wants to authorize with
+  // a different instance
+  if (location.pathname === "/redirect")
+    return startCodeExchange(credentials.instance, credentials.app);
+
+  // Try to load existing access token
+  const token = tryLoadAccessToken();
+  // If we could not load it then we need to ask user for authorization again
+  if (token === undefined)
+    return [
+      {
+        type: "authorization required",
+        app: credentials.app,
+        instance: credentials.instance,
+      },
+      command.none,
+    ];
+
+  // Else verify credentials
+
+  const verifyCredentialsCommand = command.ofMessage<WelcomePageMessage>({
+    type: "verify credentials",
+    accessToken: token.access_token,
+  });
+
+  return [
+    {
+      type: "verifying credentials",
+      app: credentials.app,
+      instance: credentials.instance,
+    },
+    verifyCredentialsCommand,
+  ];
+}
+
 function update(
   message: WelcomePageMessage,
   model: WelcomePageModel
-): [WelcomePageModel, Command<WelcomePageMessage>] {
-  //   return [model, command.none];
-
+): [
+  WelcomePageModel,
+  Command<WelcomePageMessage>,
+  WelcomePageExternalMessage?
+] {
   switch (message.type) {
     case "set instance":
       const instanceBaseUrl = createInstanceBaseUrl(message.instance);
@@ -157,7 +273,8 @@ function update(
 
       return [
         {
-          ...instanceWithCredentials,
+          app: instanceWithCredentials.app,
+          instance: instanceWithCredentials.instance,
           type: "running code exchange",
         },
         persistCredentialsCommand,
@@ -196,7 +313,10 @@ function update(
           if ("error" in result)
             return { type: "navigate to authorization page" };
 
-          return { type: "navigate to home timeline" };
+          return {
+            type: "authorization completed",
+            accessToken: message.accessToken,
+          };
         }
       );
 
@@ -207,14 +327,23 @@ function update(
         saveAccessToken,
         message.token,
         (): WelcomePageMessage => ({
-          type: "navigate to home timeline",
+          type: "authorization completed",
+          accessToken: message.token.access_token,
         })
       );
 
       return [model, persistTokenCommand];
-    case "navigate to home timeline":
+    case "authorization completed":
       //TODO figure out how to send messages to parent like for navigation
-      return [model, command.none];
+      return [
+        model,
+        command.none,
+        {
+          type: "authorization completed",
+          accessToken: message.accessToken,
+          instance: model.instance,
+        },
+      ];
   }
 }
 
@@ -287,6 +416,7 @@ function view(
 }
 
 const welcomePage = {
+  initialize,
   update,
   view,
 };
