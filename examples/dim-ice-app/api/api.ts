@@ -25,8 +25,6 @@ async function fetchTootsFromUrl(
   // Assume they always exist
   const links = parsePaginationLins(linkHeader!);
 
-  console.debug("Link 🔗 header", links);
-
   //TODO response code error handling
   return { links, toots: (await response.json()) as Status[] };
 }

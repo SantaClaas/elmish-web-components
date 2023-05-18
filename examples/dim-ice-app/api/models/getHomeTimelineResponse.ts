@@ -12,7 +12,6 @@ export function parsePaginationLins(link: string): PaginationUrls {
         const trimmed = split.trim();
         // either <url> or rel="something"
         const dataStart = trimmed[0] === "<" ? 1 : 5;
-        console.debug({ trimmed });
         return trimmed.substring(dataStart, trimmed.length - 1);
       })
     )
