@@ -121,23 +121,23 @@ function view(
       return html`Loading toots...`;
     case "loaded":
       return html` <header>
-        <h1>Home Timeline</h1>
-        <button @click=${() => dispatch({ type: "sign out" })}>Sign out</button>
-        <header>
-          <ul>
-            <lit-virtualizer
-              @rangeChanged=${(event: RangeChangedEvent) =>
-                dispatch({ type: "virtualizer range changed", event })}
-              .items=${model.toots}
-              .renderItem=${(status: Status) =>
-                html`<dim-ice-status-card
-                  .status=${status}
-                ></dim-ice-status-card>`}
-            >
-            </lit-virtualizer>
-          </ul>
+          <h1>Home Timeline</h1>
+          <button @click=${() => dispatch({ type: "sign out" })}>
+            Sign out
+          </button>
         </header>
-      </header>`;
+        <ul>
+          <lit-virtualizer
+            @rangeChanged=${(event: RangeChangedEvent) =>
+              dispatch({ type: "virtualizer range changed", event })}
+            .items=${model.toots}
+            .renderItem=${(status: Status) =>
+              html`<dim-ice-status-card
+                .status=${status}
+              ></dim-ice-status-card>`}
+          >
+          </lit-virtualizer>
+        </ul>`;
   }
 }
 
