@@ -91,7 +91,9 @@ export default class MediaAttachmentCollection extends ElmishElement<
       display: block;
     } */
 
-    picture {
+    picture,
+    /* If it is a video attachment (or mixed video + image), then we don't have the picture element sitting in between */
+    :host:has(video) {
       display: block;
       width: 100%;
     }
@@ -99,9 +101,12 @@ export default class MediaAttachmentCollection extends ElmishElement<
     img,
     video {
       width: 100%;
+      border-radius: var(--radius-2);
+    }
+
+    img {
       height: 100%;
       object-fit: contain;
-      border-radius: var(--radius-2);
     }
   `;
 
