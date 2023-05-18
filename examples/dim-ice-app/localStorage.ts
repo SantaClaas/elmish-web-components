@@ -1,4 +1,3 @@
-import Application from "./api/models/apps/application";
 import AccessTokenResponse from "./api/models/oauth/accessTokenResponse";
 import { InstanceWithCredentials } from "./instance";
 
@@ -36,7 +35,7 @@ export function saveAccessToken(token: AccessTokenResponse) {
   saveAsJson(accessTokenStorageKey, token);
 }
 
-const appCredentialsStorageKey = "dim ice app credentials";
+const appCredentialsStorageKey = "dim ice instance app credentials";
 
 export function tryLoadAppCredentials(): InstanceWithCredentials | undefined {
   return tryLoadAsJson(appCredentialsStorageKey);
