@@ -181,7 +181,7 @@ export class StatusCard extends ElmishElement<
       margin-block-start: var(--size-3);
       grid-column-start: 2;
       display: grid;
-      grid-template-columns: auto auto auto auto;
+      grid-template-columns: repeat(4, 1fr);
       justify-items: start;
     }
 
