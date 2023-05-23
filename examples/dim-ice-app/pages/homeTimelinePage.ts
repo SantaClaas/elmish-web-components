@@ -4,21 +4,27 @@ import Status from "../api/models/status";
 import command, { Command, Dispatch } from "../../../src/elmish/command";
 import PaginationUrls from "../api/paginationUrls";
 import api from "../api/api";
-import { AccessToken } from "../api/models/string";
 import Instance from "../instance";
+import { AuthorizationState } from "../authorizationState";
 
-export type HomeTimelinePageModel =
-  | { readonly type: "loading"; readonly accessToken: AccessToken }
+export type HomeTimelinePageModel = (
+  | { readonly type: "waiting for authorization" }
+  | { readonly type: "loading" }
   | {
       readonly type: "loaded";
       readonly isLoadingMoreToots: boolean;
       readonly toots: Status[];
       readonly links: PaginationUrls;
-      readonly accessToken: AccessToken;
-    };
+    }
+) & { authorizationState: AuthorizationState };
 
 export type HomeTimelinePageMessage =
   | { type: "set toots"; toots: Status[]; links: PaginationUrls }
+  // For when the authorization changes due to authorization running in the background or the user signing out
+  | {
+      type: "update authorization state";
+      authorizationState: AuthorizationState;
+    }
   | {
       type: "sign out";
     }
@@ -27,21 +33,38 @@ export type HomeTimelinePageMessage =
   | { type: "virtualizer range changed"; event: RangeChangedEvent };
 
 export type HomeTimelinePageExternalMessage = "sign out";
-function initialize(
-  accessToken: AccessToken,
-  instance: Instance
+
+function handleNewAuthorizationState(
+  authorizationState: AuthorizationState
 ): [HomeTimelinePageModel, Command<HomeTimelinePageMessage>] {
-  //TODO error handling
-  const fetchTimelineCommand = command.ofPromise.perform(
-    () => api.getHomeTimeline(instance.baseUrl, accessToken),
-    undefined,
-    ({ toots, links }): HomeTimelinePageMessage => ({
-      type: "set toots",
-      toots,
-      links,
-    })
-  );
-  return [{ type: "loading", accessToken }, fetchTimelineCommand];
+  if (authorizationState.type === "authorized") {
+    //TODO error handling
+    const fetchTimelineCommand = command.ofPromise.perform(
+      () =>
+        api.getHomeTimeline(
+          authorizationState.instance.baseUrl,
+          authorizationState.accessToken
+        ),
+      undefined,
+      ({ toots, links }): HomeTimelinePageMessage => ({
+        type: "set toots",
+        toots,
+        links,
+      })
+    );
+    return [{ type: "loading", authorizationState }, fetchTimelineCommand];
+  }
+
+  return [
+    { type: "waiting for authorization", authorizationState },
+    command.none,
+  ];
+}
+
+function initialize(
+  authorizationState: AuthorizationState
+): [HomeTimelinePageModel, Command<HomeTimelinePageMessage>] {
+  return handleNewAuthorizationState(authorizationState);
 }
 
 function update(
@@ -56,21 +79,26 @@ function update(
     case "sign out":
       return [model, command.none, "sign out"];
 
+    case "update authorization state":
+      return handleNewAuthorizationState(message.authorizationState);
     // This currently handles the two cases of first load and additional toot loads
     case "set toots":
-      if (model.type === "loading")
+      if (
+        model.type === "loading" ||
+        model.type === "waiting for authorization"
+      )
         return [
           {
             type: "loaded",
-            accessToken: model.accessToken,
             isLoadingMoreToots: false,
             links: message.links,
             toots: message.toots,
+            authorizationState: model.authorizationState,
           },
           command.none,
         ];
 
-      // I tried push but lit virtualizer does not seem to update if it is the same array
+      // I tried push, but lit virtualizer does not seem to update if it is the same array
       const newToots = [...model.toots, ...message.toots];
 
       return [
@@ -98,9 +126,15 @@ function update(
         return [model, command.none];
       }
 
+      if (model.authorizationState.type !== "authorized") {
+        console.error("Can not load more toots while being unauthorized");
+        return [model, command.none];
+      }
+
+      const token = model.authorizationState.accessToken;
       //TODO error handling
       const fetchNextTootsCommand = command.ofPromise.perform(
-        () => api.fetchTootsFromUrl(model.links.next, model.accessToken),
+        () => api.fetchTootsFromUrl(model.links.next, token),
         undefined,
         ({ links, toots }): HomeTimelinePageMessage => ({
           type: "set toots",
@@ -117,6 +151,8 @@ function view(
   dispatch: Dispatch<HomeTimelinePageMessage>
 ): TemplateResult {
   switch (model.type) {
+    case "waiting for authorization":
+      return html`Authorizing`;
     case "loading":
       return html`Loading toots...`;
     case "loaded":
