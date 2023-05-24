@@ -20,6 +20,11 @@
 
     <script type="module" src="/examples/dim-ice-app/dimIceApp.ts"></script>
     <meta name="color-scheme" content="dark" />
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/serviceworker.js");
+      }
+    </script>
   </head>
   <body>
     <dim-ice-app></dim-ice-app>

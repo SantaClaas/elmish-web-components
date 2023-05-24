@@ -15,6 +15,7 @@ A Web App Component Framework built with Elmish on top of lit-html
   - https://youtu.be/ohJcZW60br0
 
 - [heroicons](https://heroicons.com/) - nice SVG icons
+- https://github.com/jeffposnick/yt-playlist-notifier/tree/d038e795d2e876b178884212cabd5430971e28bb for helping me out with using typescript with service workers, getting the manifest of files to precache and allowing me to customize the service worker logic heavily myself
 
 ## ✨ Random Idea list ✨
 
