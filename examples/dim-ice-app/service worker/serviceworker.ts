@@ -26,13 +26,16 @@ self.addEventListener("fetch", (event: FetchEvent) =>
 const offlineAssetsExclude = [/ˆserviceworker.js/];
 const manifest = (self as any).__WB_MANIFEST;
 const cacheNamePrefix = "offline-cache-";
+const postFix = manifest && manifest.length > 0 ? manifest[0].url : "";
 // Using this as a stupid nonce for now since the name should be nonced
-const cacheName = `${cacheNamePrefix}${manifest[0].url}`;
+const cacheName = `${cacheNamePrefix}${postFix}`;
+
 async function onInstall() {
   console.debug("Service worker: install");
   // This contains all the files for precaching and is provided by workbox
 
   console.debug({ self });
+  if (!manifest) return;
   const assetsRequests = manifest
     .filter((asset: any) =>
       offlineAssetsInclude.some((pattern) => pattern.test(asset.url))

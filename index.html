@@ -2,12 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/assets/logo.smaller.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="Description"
-      content="Dim Ice, a Mastodon client to only see posts you haven't seen"
-    />
+    <meta name="Description" content="Quickly catch up on your mastodon feed" />
     <title>Dim Ice</title>
     <base href="/" />
     <!-- <link rel="icon" href="./assets/logo.svg" /> -->
@@ -20,11 +17,10 @@
 
     <script type="module" src="/examples/dim-ice-app/dimIceApp.ts"></script>
     <meta name="color-scheme" content="dark" />
-    <script>
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("/serviceworker.js");
-      }
-    </script>
+    <script
+      type="module"
+      src="/examples/dim-ice-app/registerServiceWorker.ts"
+    ></script>
   </head>
   <body>
     <dim-ice-app></dim-ice-app>
