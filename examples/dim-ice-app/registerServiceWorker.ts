@@ -1,4 +1,4 @@
 import serviceWorker from "./service worker/serviceworker?worker&url";
 
 if ("serviceWorker" in navigator)
-  navigator.serviceWorker.register(serviceWorker);
+  navigator.serviceWorker.register(serviceWorker, { type: "module" });
