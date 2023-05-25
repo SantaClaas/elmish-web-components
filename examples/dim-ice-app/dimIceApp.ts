@@ -162,7 +162,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
         const [welcomePageModel, welcomePageCommand, externalMessage] =
           welcomePage.update(message.message, model.activePage.model);
 
-        const newCommands: Command<AppMessage> = command.map(
+        const newCommand: Command<AppMessage> = command.map(
           welcomePageMessage,
           welcomePageCommand
         );
@@ -178,33 +178,27 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
                 },
                 authorizationState: model.authorizationState,
               },
-              newCommands,
+              newCommand,
             ];
           case "instance submitted": {
-            const [newAuthorizationState, newAuthorizationStateCommand] =
-              authorizationState.update(
-                { type: "set instance", instance: externalMessage.instance },
-                model.authorizationState
-              );
-
-            newCommands.push(
-              ...command.map(
-                authorizationStateMessage,
-                newAuthorizationStateCommand
-              )
+            const messageCommand = command.map(
+              authorizationStateMessage,
+              command.ofMessage<AuthorizationStateMessage>({
+                type: "set instance",
+                instance: externalMessage.instance,
+              })
             );
+
+            newCommand.push(...messageCommand);
 
             // After instance was submitted, we show the home page. The authorization flow runs in the background
             const navigateCommand = command.ofMessage<AppMessage>({
               type: "navigate to home page",
             });
 
-            newCommands.push(...navigateCommand);
+            newCommand.push(...navigateCommand);
 
-            return [
-              { ...model, authorizationState: newAuthorizationState },
-              newCommands,
-            ];
+            return [model, newCommand];
           }
         }
       }
@@ -261,8 +255,8 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
 
         const [homePageModel, homePageCommand, externalMessage] =
           homeTimelinePage.update(message.message, model.activePage.model);
-          model.activePage.model
-        const newCommands = command.map(
+        model.activePage.model;
+        const newCommand = command.map(
           hometimelinePageMessage,
           homePageCommand
         );
@@ -270,25 +264,20 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
         let newAppAuthorizationState = model.authorizationState;
         switch (externalMessage) {
           case "sign out":
-            const [newAuthorizationState, newAuthorizationStateCommand] =
-              authorizationState.update(
-                { type: "revoke access token" },
-                model.authorizationState
-              );
-
-            newCommands.push(
-              ...command.map(
-                authorizationStateMessage,
-                newAuthorizationStateCommand
-              )
+            const messageCommand = command.map(
+              authorizationStateMessage,
+              command.ofMessage<AuthorizationStateMessage>({
+                type: "revoke access token",
+              })
             );
-            newAppAuthorizationState = newAuthorizationState;
+
+            newCommand.push(...messageCommand);
             break;
           case "leave page, no authorization":
             const navigateCommand = command.ofMessage<AppMessage>({
               type: "navigate to welcome page",
             });
-            newCommands.push(...navigateCommand);
+            newCommand.push(...navigateCommand);
             break;
         }
 
@@ -298,7 +287,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
             instance: model.instance,
             authorizationState: newAppAuthorizationState,
           },
-          newCommands,
+          newCommand,
         ];
       case "navigate to home page":
         console.debug("Navigate to home");
