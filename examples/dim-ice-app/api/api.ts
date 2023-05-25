@@ -5,6 +5,7 @@ import VerifiedApplication from "./models/apps/verifiedApplication";
 import GetHomeTimelineResponse, {
   parsePaginationLins,
 } from "./models/getHomeTimelineResponse";
+import Instance from "./models/instance";
 import AccessTokenRequest from "./models/oauth/accessTokenRequest";
 import AccessTokenResponse from "./models/oauth/accessTokenResponse";
 import Status from "./models/status";
@@ -135,6 +136,22 @@ async function revokeToken(
   });
 }
 
+async function getServerInformation(instanceBaseUrl: URL): Promise<Instance> {
+  const url = new URL("/api/v2/instance", instanceBaseUrl);
+
+  const response = await fetch(url);
+
+  return (await response.json()) as Instance;
+}
+
+async function getConnectedDomains(instanceBaseUrl: URL): Promise<string[]> {
+  const url = new URL("/api/v1/instance/peers", instanceBaseUrl);
+
+  const response = await fetch(url);
+
+  return (await response.json()) as string[];
+}
+
 const api = {
   getHomeTimeline,
   fetchTootsFromUrl,
@@ -142,5 +159,7 @@ const api = {
   verifyCredentials,
   createApp,
   revokeToken,
+  getServerInformation,
+  getConnectedDomains,
 };
 export default api;

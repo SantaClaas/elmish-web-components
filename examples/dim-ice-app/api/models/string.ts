@@ -44,3 +44,8 @@ export type BlurHash = string;
  * Represents an OAuth access token string
  */
 export type AccessToken = string;
+
+/**
+ * Represents a string in the format of an email address but not guaranteed to be an email address
+ */
+export type EmailAddressString = string;
