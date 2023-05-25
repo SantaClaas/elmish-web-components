@@ -1,4 +1,4 @@
-import Iso8601DateTimeString from "../iso8601DateTime";
+import Iso8601DateTimeString from "../../iso8601DateTime";
 import FilterResult from "./FilterResult";
 import Account from "./account";
 import CustomEmoji from "./customEmoji";
