@@ -7,6 +7,7 @@ import Application from "./api/models/apps/application";
 import AccessTokenResponse from "./api/models/oauth/accessTokenResponse";
 import { AccessToken } from "./api/models/string";
 import Instance, { InstanceWithCredentials } from "./instance";
+import { removeAccessToken } from "./localStorage";
 import {
   tryLoadAppCredentials,
   tryLoadAccessToken,
@@ -40,6 +41,10 @@ export type AuthorizationStateMessage =
       readonly type: "set access token";
       readonly token: AccessTokenResponse;
     }
+  | {
+      readonly type: "clear access token";
+    }
+  | { readonly type: "revoke access token" }
   | { readonly type: "authorization completed"; accessToken: AccessToken };
 
 // External message following good recommendations from https://medium.com/@MangelMaxime/my-tips-for-working-with-elmish-ab8d193d52fd
@@ -85,6 +90,7 @@ export type AuthorizationState =
      * see if it is still valid. If it is no longer valid then we need to request authorization again.
      */
     | ({ type: "verifying credentials" } & InstanceWithCredentials)
+    | ({ type: "revoking access token" } & InstanceWithCredentials)
     | ({
         type: "authorized";
         accessToken: AccessToken;
@@ -336,10 +342,31 @@ function update(
       );
 
       return [model, persistTokenCommand];
+    case "clear access token":
+      if (!("app" in model)) {
+        console.error("Expected to have app and be in revokation before");
+
+        return [model, command.none];
+      }
+
+      const clearCommand = command.ofEffect<AuthorizationStateMessage>(() =>
+        removeAccessToken()
+      );
+
+      return [
+        {
+          type: "authorization required",
+          app: model.app,
+          instance: model.instance,
+        },
+        clearCommand,
+      ];
+
     case "authorization completed":
       if (
         model.type === "creating app" ||
-        model.type === "no app credentials"
+        model.type === "no app credentials" ||
+        model.type === "revoking access token"
       ) {
         console.error("Unexpected completion of authorization");
         return [model, command.none];
@@ -358,6 +385,33 @@ function update(
           accessToken: message.accessToken,
           instance: model.instance,
         },
+      ];
+
+    case "revoke access token":
+      if (model.type !== "authorized") {
+        console.error("Unexpected completion of authorization");
+        return [model, command.none];
+      }
+
+      const revokeCommand = command.ofPromise.perform(
+        () =>
+          api.revokeToken(
+            model.instance.baseUrl,
+            model.accessToken,
+            model.app.client_id,
+            model.app.client_secret
+          ),
+        undefined,
+        (): AuthorizationStateMessage => ({ type: "clear access token" })
+      );
+
+      return [
+        {
+          type: "revoking access token",
+          instance: model.instance,
+          app: model.app,
+        },
+        revokeCommand,
       ];
   }
 }

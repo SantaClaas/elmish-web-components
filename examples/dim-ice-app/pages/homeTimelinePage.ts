@@ -31,11 +31,17 @@ export type HomeTimelinePageMessage =
   // the toots loaded, then we need to trigger loading more
   | { type: "virtualizer range changed"; event: RangeChangedEvent };
 
-export type HomeTimelinePageExternalMessage = "sign out";
+export type HomeTimelinePageExternalMessage =
+  | "sign out"
+  | "leave page, no authorization";
 
 function handleNewAuthorizationState(
   authorizationState: AuthorizationState
-): [HomeTimelinePageModel, Command<HomeTimelinePageMessage>] {
+): [
+  HomeTimelinePageModel,
+  Command<HomeTimelinePageMessage>,
+  HomeTimelinePageExternalMessage?
+] {
   if (authorizationState.type === "authorized") {
     //TODO error handling
     const fetchTimelineCommand = command.ofPromise.perform(
@@ -54,6 +60,14 @@ function handleNewAuthorizationState(
     return [{ type: "loading", authorizationState }, fetchTimelineCommand];
   }
 
+  if (authorizationState.type === "authorization required") {
+    return [
+      { type: "waiting for authorization", authorizationState },
+      command.none,
+      "leave page, no authorization",
+    ];
+  }
+
   return [
     { type: "waiting for authorization", authorizationState },
     command.none,
@@ -62,7 +76,11 @@ function handleNewAuthorizationState(
 
 function initialize(
   authorizationState: AuthorizationState
-): [HomeTimelinePageModel, Command<HomeTimelinePageMessage>] {
+): [
+  HomeTimelinePageModel,
+  Command<HomeTimelinePageMessage>,
+  HomeTimelinePageExternalMessage?
+] {
   return handleNewAuthorizationState(authorizationState);
 }
 
@@ -145,6 +163,7 @@ function update(
       return [{ ...model, isLoadingMoreToots: true }, fetchNextTootsCommand];
   }
 }
+
 function view(
   model: HomeTimelinePageModel,
   dispatch: Dispatch<HomeTimelinePageMessage>

@@ -48,6 +48,12 @@ export type AppMessage =
   | {
       readonly type: "authorization state message";
       readonly message: AuthorizationStateMessage;
+    }
+  | {
+      readonly type: "navigate to home page";
+    }
+  | {
+      readonly type: "navigate to welcome page";
     };
 
 function welcomePageMessage(message: WelcomePageMessage): AppMessage {
@@ -77,7 +83,10 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
     let pageModel, pageCommand;
     // Set start page to welcome page if we don't have app credentials to allow user to select instance. This is most
     // likely the first open
-    if (authorizationStateModel.type === "no app credentials") {
+    if (
+      authorizationStateModel.type === "no app credentials" ||
+      authorizationStateModel.type === "authorization required"
+    ) {
       [pageModel, pageCommand] = welcomePage.initialize(
         authorizationStateModel.instance
       );
@@ -107,13 +116,44 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
       initialCommand,
     ];
   }
+  navigateToWelcomePage(model: AppModel): [AppModel, Command<AppMessage>] {
+    const [pageModel, pageCommand] = welcomePage.initialize(model.instance);
+
+    const newCommands = command.map(welcomePageMessage, pageCommand);
+
+    return [
+      {
+        activePage: { page: "welcome", model: pageModel },
+        authorizationState: model.authorizationState,
+        instance: model.instance,
+      },
+      newCommands,
+    ];
+  }
+
+  navigateToHomePage(model: AppModel): [AppModel, Command<AppMessage>] {
+    const [pageModel, pageCommand] = homeTimelinePage.initialize(
+      model.authorizationState
+    );
+
+    const newCommands = command.map(hometimelinePageMessage, pageCommand);
+
+    return [
+      {
+        activePage: { page: "home timeline", model: pageModel },
+        authorizationState: model.authorizationState,
+        instance: model.instance,
+      },
+      newCommands,
+    ];
+  }
 
   update(
     message: AppMessage,
     model: AppModel
   ): [AppModel, Command<AppMessage>] {
     switch (message.type) {
-      case "welcome page message":
+      case "welcome page message": {
         if (model.activePage.page !== "welcome") {
           console.error("Expected to be on welcome page");
           return [model, command.none];
@@ -154,25 +194,20 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
               )
             );
 
-            const [pageModel, pageCommand] = homeTimelinePage.initialize(
-              newAuthorizationState
-            );
+            // After instance was submitted, we show the home page. The authorization flow runs in the background
+            const navigateCommand = command.ofMessage<AppMessage>({
+              type: "navigate to home page",
+            });
 
-            newCommands.push(
-              ...command.map(hometimelinePageMessage, pageCommand)
-            );
+            newCommands.push(...navigateCommand);
 
             return [
-              // After instance was submitted, we show the home page. The authorization flow runs in the background
-              {
-                activePage: { page: "home timeline", model: pageModel },
-                authorizationState: newAuthorizationState,
-                instance: newAuthorizationState.instance,
-              },
+              { ...model, authorizationState: newAuthorizationState },
               newCommands,
             ];
           }
         }
+      }
       case "authorization state message": {
         const [
           newAuthorizationState,
@@ -183,56 +218,39 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
           model.authorizationState
         );
 
-        const newCommands = command.map(
+        const newCommand = command.map(
           authorizationStateMessage,
           newAuthorizationStateCommand
         );
 
-        if (externalMessage === undefined)
-          return [
-            { ...model, authorizationState: newAuthorizationState },
-            newCommands,
-          ];
-
-        // if(externalMessage.type === "authorization completed")
+        // Update authorization state on page too
         if (model.activePage.page === "home timeline") {
-          const [homeTimelineModel, homeTimelineCommand] =
-            homeTimelinePage.update(
-              {
-                type: "update authorization state",
-                authorizationState: newAuthorizationState,
-              },
-              model.activePage.model
-            );
-
-          newCommands.push(
-            ...command.map(hometimelinePageMessage, homeTimelineCommand)
+          console.debug("Updating with new auth state", newAuthorizationState);
+          const updateCommand = command.map(
+            hometimelinePageMessage,
+            command.ofMessage<HomeTimelinePageMessage>({
+              type: "update authorization state",
+              authorizationState: newAuthorizationState,
+            })
           );
 
-          return [
-            {
-              activePage: { page: "home timeline", model: homeTimelineModel },
-              instance: model.instance,
-              authorizationState: newAuthorizationState,
-            },
-            newCommands,
-          ];
+          newCommand.push(...updateCommand);
         }
 
-        const [pageModel, pageCommand] = homeTimelinePage.initialize(
-          newAuthorizationState
-        );
-
-        newCommands.push(...command.map(hometimelinePageMessage, pageCommand));
+        // If authorization is completed and we are not yet on the home page
+        if (
+          externalMessage !== undefined &&
+          externalMessage.type === "authorization completed"
+        ) {
+          const navigateCommand = command.ofMessage<AppMessage>({
+            type: "navigate to home page",
+          });
+          newCommand.push(...navigateCommand);
+        }
 
         return [
-          // After instance was submitted, we show the home page. The authorization flow runs in the background
-          {
-            activePage: { page: "home timeline", model: pageModel },
-            authorizationState: newAuthorizationState,
-            instance: newAuthorizationState.instance,
-          },
-          newCommands,
+          { ...model, authorizationState: newAuthorizationState },
+          newCommand,
         ];
       }
       case "home timeline page message":
@@ -241,23 +259,53 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
           return [model, command.none];
         }
 
-        const [homePageModel, homePageCommand] = homeTimelinePage.update(
-          message.message,
+        const [homePageModel, homePageCommand, externalMessage] =
+          homeTimelinePage.update(message.message, model.activePage.model);
           model.activePage.model
-        );
-
-        const mappedCommand = command.map(
+        const newCommands = command.map(
           hometimelinePageMessage,
           homePageCommand
         );
+
+        let newAppAuthorizationState = model.authorizationState;
+        switch (externalMessage) {
+          case "sign out":
+            const [newAuthorizationState, newAuthorizationStateCommand] =
+              authorizationState.update(
+                { type: "revoke access token" },
+                model.authorizationState
+              );
+
+            newCommands.push(
+              ...command.map(
+                authorizationStateMessage,
+                newAuthorizationStateCommand
+              )
+            );
+            newAppAuthorizationState = newAuthorizationState;
+            break;
+          case "leave page, no authorization":
+            const navigateCommand = command.ofMessage<AppMessage>({
+              type: "navigate to welcome page",
+            });
+            newCommands.push(...navigateCommand);
+            break;
+        }
+
         return [
           {
             activePage: { page: "home timeline", model: homePageModel },
             instance: model.instance,
-            authorizationState: model.authorizationState,
+            authorizationState: newAppAuthorizationState,
           },
-          mappedCommand,
+          newCommands,
         ];
+      case "navigate to home page":
+        console.debug("Navigate to home");
+        return this.navigateToHomePage(model);
+      case "navigate to welcome page":
+        console.debug("Navigating to welcoem page");
+        return this.navigateToWelcomePage(model);
     }
   }
 
@@ -280,10 +328,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
          But padding and other styles only apply to a small rectangle
        */
       display: block;
-    }
-
-    h1 {
-      padding-inline-start: var(--size-2);
+      padding-inline: var(--size-2);
     }
   `;
 

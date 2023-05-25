@@ -35,10 +35,22 @@ export function saveAccessToken(token: AccessTokenResponse) {
   saveAsJson(accessTokenStorageKey, token);
 }
 
+export function removeAccessToken() {
+  if (!("localStorage" in window)) return;
+  localStorage.removeItem(accessTokenStorageKey);
+}
+
 const appCredentialsStorageKey = "dim ice instance app credentials";
 
 export function tryLoadAppCredentials(): InstanceWithCredentials | undefined {
-  return tryLoadAsJson(appCredentialsStorageKey);
+  const app = tryLoadAsJson(appCredentialsStorageKey) as
+    | InstanceWithCredentials
+    | undefined;
+  if (app === undefined) return undefined;
+
+  // Ensure it is not a string
+  app.instance.baseUrl = new URL(app.instance.baseUrl);
+  return app;
 }
 
 export function saveAppCredentials(app: InstanceWithCredentials) {

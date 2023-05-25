@@ -16,6 +16,7 @@ A Web App Component Framework built with Elmish on top of lit-html
 
 - [heroicons](https://heroicons.com/) - nice SVG icons
 - https://github.com/jeffposnick/yt-playlist-notifier/tree/d038e795d2e876b178884212cabd5430971e28bb for helping me out with using typescript with service workers, getting the manifest of files to precache and allowing me to customize the service worker logic heavily myself
+- https://gwfh.mranftl.com/fonts for converting Google fonts to allow self hosting
 
 ## ✨ Random Idea list ✨
 
@@ -71,8 +72,14 @@ Performance is not my first concern but important. Much of the code I write is a
 - Update time of post with timer
 - Add "pull to refresh" with scroll snap as seen in Adam Argyle's "Oh Snap!" talk
 - Create our own virtualizer element since we know the sizes of elements to render
-
-<br/>
+- Improve image loading
+  - Blurhash
+    - offload blurhash image generation into service worker and use fetch event. Then write to the response stream as soon as PNG data gets available
+    - use ImageElement decode() promise to find out when real image is loaded for replacement and cancel request to service worker for blurhash image
+    - use /serviceworker/... as path for requests we know that are meant for service workers
+  - only add loading="lazy" to images below the fold
+  - use decoding="async" on media attachments
+    <br/>
 
 ## Why not just use Fable and F#?
 
