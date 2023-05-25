@@ -36,19 +36,19 @@ export type HomeTimelinePageExternalMessage =
   | "leave page, no authorization";
 
 function handleNewAuthorizationState(
-  authorizationState: AuthorizationState
+  newAuthorizationState: AuthorizationState
 ): [
   HomeTimelinePageModel,
   Command<HomeTimelinePageMessage>,
   HomeTimelinePageExternalMessage?
 ] {
-  if (authorizationState.type === "authorized") {
+  if (newAuthorizationState.type === "authorized") {
     //TODO error handling
     const fetchTimelineCommand = command.ofPromise.perform(
       () =>
         api.getHomeTimeline(
-          authorizationState.instance.baseUrl,
-          authorizationState.accessToken
+          newAuthorizationState.instance.baseUrl,
+          newAuthorizationState.accessToken
         ),
       undefined,
       ({ toots, links }): HomeTimelinePageMessage => ({
@@ -57,19 +57,28 @@ function handleNewAuthorizationState(
         links,
       })
     );
-    return [{ type: "loading", authorizationState }, fetchTimelineCommand];
+    return [
+      { type: "loading", authorizationState: newAuthorizationState },
+      fetchTimelineCommand,
+    ];
   }
 
-  if (authorizationState.type === "authorization required") {
+  if (newAuthorizationState.type === "authorization required") {
     return [
-      { type: "waiting for authorization", authorizationState },
+      {
+        type: "waiting for authorization",
+        authorizationState: newAuthorizationState,
+      },
       command.none,
       "leave page, no authorization",
     ];
   }
 
   return [
-    { type: "waiting for authorization", authorizationState },
+    {
+      type: "waiting for authorization",
+      authorizationState: newAuthorizationState,
+    },
     command.none,
   ];
 }
