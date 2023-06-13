@@ -19,6 +19,7 @@ export default {
         categories: ["entertainment", "social"],
         description: "Quickly catch up on your mastodon feed",
         display: "standalone",
+        // Put preferred icon last as it will be used see https://w3c.github.io/manifest/#icons-member
         icons: [
           {
             src: "assets/logo.smaller.svg",

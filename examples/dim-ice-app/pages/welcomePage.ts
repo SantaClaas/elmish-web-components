@@ -1,6 +1,8 @@
-import { TemplateResult, html } from "lit-html";
+import { TemplateResult, html, nothing } from "lit-html";
 import command, { Command, Dispatch } from "../../../src/elmish/command";
 import Instance from "../instance";
+import { UrlString } from "../api/models/string";
+import { repeat } from "lit-html/directives/repeat.js";
 
 // External message following good recommendations from https://medium.com/@MangelMaxime/my-tips-for-working-with-elmish-ab8d193d52fd
 export type WelcomePageExternalMessage = {
@@ -13,21 +15,52 @@ export type WelcomePageMessage =
       readonly type: "set instance";
       readonly instance: string;
     }
+  | {
+      readonly type: "set server suggestions";
+      readonly servers: MastodonServerInstance[];
+    }
   | { type: "submit instance" };
 
-export type WelcomePageModel = { instance: Instance };
+export type WelcomePageModel = {
+  instance: Instance;
+  serverSuggestions: MastodonServerInstance[] | "loading";
+};
 
 function createInstanceBaseUrl(instance: string) {
   //TODO we should add some verification here because the string can be anything
   return new URL(`https://${instance}/`);
 }
+type MastodonServerInstance = {
+  domain: UrlString;
+  description: string;
+  last_week_users: number;
+};
+async function getServerSuggestionList() {
+  // This is not an officially supported API and I am not sure if I should use it
+  const response = await fetch(
+    `https://api.joinmastodon.org/servers?language=${navigator.language}&category=general&region=&ownership=&registrations=`
+  );
+
+  return (await response.json()) as MastodonServerInstance[];
+}
+
 /**
  * @param instance The default instance or the loaded instance
  */
 function initialize(
   instance: Instance
 ): [WelcomePageModel, Command<WelcomePageMessage>] {
-  return [{ instance }, command.none];
+  // Load peers of mastodon.social as suggestion for what instance to pick
+
+  const loadSuggestionsCommand = command.ofPromise.perform(
+    getServerSuggestionList,
+    undefined,
+    (servers): WelcomePageMessage => ({
+      type: "set server suggestions",
+      servers,
+    })
+  );
+  return [{ instance, serverSuggestions: "loading" }, loadSuggestionsCommand];
 }
 
 function update(
@@ -41,13 +74,23 @@ function update(
   switch (message.type) {
     case "set instance":
       const instanceBaseUrl = createInstanceBaseUrl(message.instance);
-      return [{ instance: { baseUrl: instanceBaseUrl } }, command.none];
+
+      // Get information about instance
+      return [
+        {
+          serverSuggestions: model.serverSuggestions,
+          instance: { baseUrl: instanceBaseUrl },
+        },
+        command.none,
+      ];
     case "submit instance":
       return [
         model,
         command.none,
         { type: "instance submitted", instance: model.instance },
       ];
+    case "set server suggestions":
+      return [{ ...model, serverSuggestions: message.servers }, command.none];
   }
 }
 
@@ -94,6 +137,19 @@ function view(
         })}"
     />
     <button type="submit">Submit</button>
+    ${model.serverSuggestions !== "loading" &&
+    model.serverSuggestions.length > 0
+      ? html`<ul>
+          ${repeat(
+            model.serverSuggestions,
+            (server) => html`<li class="suggestion">
+              <h2>${server.domain}</h2>
+              <p>${server.description}</p>
+              <p>${server.last_week_users} active users last week</p>
+            </li>`
+          )}
+        </ul>`
+      : nothing}
   </form>`;
 }
 

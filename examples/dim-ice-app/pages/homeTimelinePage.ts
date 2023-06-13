@@ -195,9 +195,9 @@ function view(
               dispatch({ type: "virtualizer range changed", event })}
             .items=${model.toots}
             .renderItem=${(status: Status) =>
-              html`<dim-ice-status-card
-                .status=${status}
-              ></dim-ice-status-card>`}
+              html`<li>
+                <dim-ice-status-card .status=${status}></dim-ice-status-card>
+              </li>`}
           >
           </lit-virtualizer>
         </ul>`;

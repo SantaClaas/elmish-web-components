@@ -304,6 +304,7 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
       padding-inline-start: 0;
       max-width: var(--size-15);
       margin-inline: auto;
+      list-style: none;
     }
 
     ul lit-virtualizer > * + * {
@@ -318,6 +319,21 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
        */
       display: block;
       padding-inline: var(--size-2);
+    }
+
+    /* Welcome Page suggestions */
+
+    ul > .suggestion + .suggestion {
+      margin-block-start: var(--size-3);
+    }
+    li.suggestion {
+      background: var(--surface-2);
+      padding: var(--size-4);
+      border-radius: var(--radius-3);
+    }
+
+    li.suggestion h2 {
+      margin-block: 0;
     }
   `;
 
