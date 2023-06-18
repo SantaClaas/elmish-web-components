@@ -129,7 +129,13 @@ class OutlinedInput extends ViewElement {
       border-bottom-width: 1px;
     }
 
-    .group .fillers .filler-middle div {
+    .group .fillers .filler-middle label {
+      display: block;
+      /* text-slate-400 */
+      color: #94a3b8;
+      /* whitespace-nowrap */
+      white-space: nowrap;
+
       /* transition-all */
       transition-property: all;
       transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
@@ -140,13 +146,6 @@ class OutlinedInput extends ViewElement {
 
       /* Needs to be set here to also apply to div and label */
       line-height: 1.5;
-    }
-
-    .group .fillers .filler-middle div label {
-      /* text-slate-400 */
-      color: #94a3b8;
-      /* whitespace-nowrap */
-      white-space: nowrap;
     }
 
     .group .fillers .filler-end {
@@ -175,13 +174,13 @@ class OutlinedInput extends ViewElement {
     }
     /* TODO check if label needs to be nested withing div */
     /* Only move label up when label moves up e.g focus, not-empty, placeholder shown */
-    .group:focus-within .fillers .filler-middle div {
+    .group:focus-within .fillers .filler-middle label {
       /* -translate-y-3.5 */
-      transform: translateY(-0.875rem);
+      transform: translateY(-0.5rem);
     }
 
     /* Only move label up when label moves up e.g focus, not-empty, placeholder shown */
-    .group:focus-within .fillers .filler-middle div label {
+    .group:focus-within .fillers .filler-middle label {
       /* text-xs */
       font-size: 0.75rem;
       line-height: 1rem;
@@ -197,9 +196,7 @@ class OutlinedInput extends ViewElement {
           <div class="filler-start"></div>
           <!-- Filler middle -->
           <div class="filler-middle">
-            <div>
-              <label for="input">Label text</label>
-            </div>
+            <label for="input">Label text</label>
           </div>
           <!-- Filler end -->
           <div class="filler-end"></div>
