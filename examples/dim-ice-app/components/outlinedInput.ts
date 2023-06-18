@@ -137,6 +137,9 @@ class OutlinedInput extends ViewElement {
 
       /* translate-y-1/3 */
       transform: translateY(33.33333333333333%);
+
+      /* Needs to be set here to also apply to div and label */
+      line-height: 1.5;
     }
 
     .group .fillers .filler-middle div label {
@@ -144,8 +147,6 @@ class OutlinedInput extends ViewElement {
       color: #94a3b8;
       /* whitespace-nowrap */
       white-space: nowrap;
-
-      line-height: 1.5;
     }
 
     .group .fillers .filler-end {
@@ -165,6 +166,25 @@ class OutlinedInput extends ViewElement {
 
       /* w-full */
       width: 100%;
+    }
+
+    /* Only remove border top when label moves up e.g focus, not-empty, placeholder shown */
+    .group:focus-within .fillers .filler-middle {
+      /* border-t-transparent */
+      border-top-color: transparent;
+    }
+    /* TODO check if label needs to be nested withing div */
+    /* Only move label up when label moves up e.g focus, not-empty, placeholder shown */
+    .group:focus-within .fillers .filler-middle div {
+      /* -translate-y-3.5 */
+      transform: translateY(-0.875rem);
+    }
+
+    /* Only move label up when label moves up e.g focus, not-empty, placeholder shown */
+    .group:focus-within .fillers .filler-middle div label {
+      /* text-xs */
+      font-size: 0.75rem;
+      line-height: 1rem;
     }
   `;
 
