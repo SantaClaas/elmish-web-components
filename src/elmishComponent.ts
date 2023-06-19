@@ -12,6 +12,33 @@ import {
   stopSubscriptions,
 } from "./elmish/subscription";
 
+/**
+ * A simple component to isolate styles and render html
+ */
+export abstract class ViewElement extends HTMLElement {
+  #shadowRoot: ShadowRoot;
+  constructor() {
+    super();
+    this.#shadowRoot = this.attachShadow({ mode: "open" });
+    // Set styles as soon as styles are generated
+    (this.constructor as typeof ViewElement).styles?.then((sheet) =>
+      this.#shadowRoot.adoptedStyleSheets.push(sheet)
+    );
+  }
+
+  // ⏬ Styling ⏬
+  /**
+   * Implementing components can use this to add styling to their markup
+   */
+  protected static styles?: Promise<CSSStyleSheet>;
+
+  abstract view(): TemplateResult | typeof nothing;
+
+  connectedCallback() {
+    render(this.view(), this.#shadowRoot);
+  }
+}
+
 // Not exactly elmish but more like lit-elmish as this relies on lit-html to render the view
 //TODO try splitting the program loop things into a mixin class
 export default abstract class ElmishElement<
@@ -155,12 +182,6 @@ export default abstract class ElmishElement<
 
   // ⏬ Properties ⏬
 
-  // ⏬ Styling ⏬
-  /**
-   * Implementing components can use this to add styling to their markup
-   */
-  protected static styles?: Promise<CSSStyleSheet>;
-
   // Defined as property because function is called in constructor through command execute starting side effects and it
   // would have the fields as undefined if this would be a method
   /**
@@ -211,11 +232,6 @@ export default abstract class ElmishElement<
       this.onError,
       this.dispatch,
       difference
-    );
-
-    // Set styles as soon as styles are generated
-    (this.constructor as typeof ElmishElement).styles?.then((sheet) =>
-      this.#shadowRoot.adoptedStyleSheets.push(sheet)
     );
   }
 
