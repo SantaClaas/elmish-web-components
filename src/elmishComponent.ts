@@ -1,16 +1,16 @@
 // The first attempt at an elmish base component
 
 import { TemplateResult, nothing, render } from "lit-html";
-import { type Command, type Dispatch } from "./elmish/command";
-import command from "./elmish/command";
-import { Termination } from "./elmish/program";
+import { type Command, type Dispatch } from "./framework/elmish/command";
+import command from "./framework/elmish/command";
+import { Termination } from "./framework/elmish/program";
 import {
   ActiveSubscription,
   change,
   differentiate,
   NewSubscription,
   stopSubscriptions,
-} from "./elmish/subscription";
+} from "./framework/elmish/subscription";
 
 // Not exactly elmish but more like lit-elmish as this relies on lit-html to render the view
 //TODO try splitting the program loop things into a mixin class

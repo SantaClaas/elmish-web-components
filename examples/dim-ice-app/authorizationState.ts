@@ -1,7 +1,7 @@
 // The authentication state acts like a page but without a view. The model can be used by other components to adapt
 // their behavior and view
 
-import command, { Command } from "../../src/elmish/command";
+import command, { Command } from "../../src/framework/elmish/command";
 import api from "./api/api";
 import Application from "./api/models/apps/application";
 import AccessTokenResponse from "./api/models/oauth/accessTokenResponse";

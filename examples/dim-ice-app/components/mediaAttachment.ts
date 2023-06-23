@@ -5,7 +5,7 @@ import { decodeBlurHash } from "fast-blurhash";
 import { BlurHash } from "../api/models/string";
 import { generatePng } from "../pixelsToPng";
 import ElmishElement from "../../../src/elmishComponent";
-import command, { Command } from "../../../src/elmish/command";
+import command, { Command } from "../../../src/framework/elmish/command";
 import { css } from "../styling";
 
 //TODO dispose object URL

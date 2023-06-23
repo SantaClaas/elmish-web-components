@@ -1,6 +1,6 @@
 // A typical counter component implementation to try implementing elmish
 
-import { Command, Dispatch } from "../../src/elmish/command";
+import { Command, Dispatch } from "../../src/framework/elmish/command";
 
 // Could also just say model is an alias for type number but this is clearer IMO
 type CounterModel = {

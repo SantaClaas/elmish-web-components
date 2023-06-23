@@ -1,7 +1,10 @@
 import { RangeChangedEvent } from "@lit-labs/virtualizer";
 import { TemplateResult, html } from "lit-html";
 import Status from "../api/models/status";
-import command, { Command, Dispatch } from "../../../src/elmish/command";
+import command, {
+  Command,
+  Dispatch,
+} from "../../../src/framework/elmish/command";
 import PaginationUrls from "../api/paginationUrls";
 import api from "../api/api";
 import { AuthorizationState } from "../authorizationState";

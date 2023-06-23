@@ -3,8 +3,11 @@ import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
 import Status from "../api/models/status";
 import { accountAvatar } from "./avatar";
 import ElmishElement from "../../../src/elmishComponent";
-import { type Command, type Dispatch } from "../../../src/elmish/command";
-import command from "../../../src/elmish/command";
+import {
+  type Command,
+  type Dispatch,
+} from "../../../src/framework/elmish/command";
+import command from "../../../src/framework/elmish/command";
 import { css } from "../styling";
 
 function getLanguage(status: Status) {
