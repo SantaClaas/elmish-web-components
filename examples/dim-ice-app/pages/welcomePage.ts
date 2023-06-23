@@ -142,7 +142,14 @@ function view(
       ? html`<ul>
           ${repeat(
             model.serverSuggestions,
-            (server) => html`<li class="suggestion">
+            (server) => html`<li
+              class="suggestion"
+              @click=${() =>
+                dispatch({
+                  type: "set instance",
+                  instance: server.domain,
+                })}
+            >
               <h2>${server.domain}</h2>
               <p>${server.description}</p>
               <p>${server.last_week_users} active users last week</p>

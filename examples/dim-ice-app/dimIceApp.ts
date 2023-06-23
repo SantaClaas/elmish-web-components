@@ -330,6 +330,10 @@ class DimIceApp extends ElmishElement<AppModel, AppMessage> {
       background: var(--surface-2);
       padding: var(--size-4);
       border-radius: var(--radius-3);
+      cursor: pointer;
+    }
+    li.suggestion:hover {
+      background: color-mix(in srgb, var(--surface-2), white 10%);
     }
 
     li.suggestion h2 {
