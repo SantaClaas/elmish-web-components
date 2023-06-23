@@ -1,8 +1,11 @@
 // The dim ice app mastodon client root component
-import command from "../../src/elmish/command";
-import { type Command, type Dispatch } from "../../src/elmish/command";
+import command from "../../src/framework/elmish/command";
+import {
+  type Command,
+  type Dispatch,
+} from "../../src/framework/elmish/command";
 import { TemplateResult } from "lit-html";
-import ElmishElement from "../../src/elmishComponent";
+import ElmishElement from "../../src/framework/elmishComponent";
 import { StatusCard } from "./components/statusCard";
 import { css } from "./styling";
 import MediaAttachmentCollection from "./components/mediaAttachment";

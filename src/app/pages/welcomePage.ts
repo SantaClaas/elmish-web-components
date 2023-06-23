@@ -1,5 +1,8 @@
 import { TemplateResult, html, nothing } from "lit-html";
-import command, { Command, Dispatch } from "../../../src/elmish/command";
+import command, {
+  Command,
+  Dispatch,
+} from "../../../src/framework/elmish/command";
 import Instance from "../instance";
 import { UrlString } from "../api/models/string";
 import { repeat } from "lit-html/directives/repeat.js";
