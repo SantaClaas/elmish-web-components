@@ -8,7 +8,7 @@ import {
   Subscription,
   SubscriptionId,
   type StopFunction,
-} from "../../src/elmish/subscription";
+} from "../../src/framework/elmish/subscription";
 
 type SubscriptionContainer<TMessage> = {
   subscription: Subscribe<TMessage>;

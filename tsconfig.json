@@ -3,6 +3,6 @@
     "lib": ["ESNext", "DOM"]
   },
   "include": ["src", "examples"],
-  "exclude": ["examples/dim-ice-app/service worker"],
+  "exclude": ["src/app/service worker"],
   "extends": "./base tsconfig.json"
 }
