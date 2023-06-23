@@ -679,3 +679,4 @@ type Iso639Part1Code =
   | "zx"
   | "zy"
   | "zz";
+export default Iso639Part1Code;

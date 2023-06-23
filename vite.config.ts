@@ -10,7 +10,7 @@ export default {
       devOptions: { enabled: true },
       outDir: "./",
       filename: "serviceworker.ts",
-      srcDir: "examples/dim-ice-app/service worker",
+      srcDir: "src/app/service worker",
       injectRegister: false,
       strategies: "injectManifest",
       manifest: {
