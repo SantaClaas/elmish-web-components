@@ -2,7 +2,7 @@ import { TemplateResult, html, nothing, svg } from "lit-html";
 import { unsafeHTML } from "lit-html/directives/unsafe-html.js";
 import Status from "../api/models/status";
 import { accountAvatar } from "./avatar";
-import ElmishElement from "../../../src/elmishComponent";
+import ElmishElement from "../../../src/framework/elmishComponent";
 import {
   type Command,
   type Dispatch,

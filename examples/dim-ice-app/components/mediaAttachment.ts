@@ -4,7 +4,7 @@ import { repeat } from "lit-html/directives/repeat.js";
 import { decodeBlurHash } from "fast-blurhash";
 import { BlurHash } from "../api/models/string";
 import { generatePng } from "../pixelsToPng";
-import ElmishElement from "../../../src/elmishComponent";
+import ElmishElement from "../../../src/framework/elmishComponent";
 import command, { Command } from "../../../src/framework/elmish/command";
 import { css } from "../styling";
 
