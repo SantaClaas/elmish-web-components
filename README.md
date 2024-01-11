@@ -20,6 +20,7 @@ A Web App Component Framework built with Elmish on top of lit-html
 
 ## ✨ Random Idea list ✨
 
+- Look into this PNG resource https://evanhahn.com/worlds-smallest-png/
 - Integrate navigation and router with subscriptions
   - when a navigation occurs, a subscription gets triggered and it is resolved client side
 - Integrate attribute change on component with subscriptions
