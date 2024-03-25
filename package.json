@@ -20,7 +20,7 @@
     "postcss-jit-props": "^1.0.14",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
-    "vite": "^5.0.12",
+    "vite": "^5.2.6",
     "vite-plugin-pwa": "^0.17.5",
     "vitest": "^1.2.2"
   },
